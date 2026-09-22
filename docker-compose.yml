@@ -1,0 +1,25 @@
+services:
+  oracle-db:
+    image: gvenzl/oracle-free:23-slim
+    container_name: blog_oracle_db
+    environment:
+      # SYS/SYSTEM password del contenedor (no es la que usa la app)
+      ORACLE_PASSWORD: admin123
+      # Usuario y password de la aplicación, creado automáticamente dentro de FREEPDB1
+      APP_USER: blog_admin
+      APP_USER_PASSWORD: admin123
+      # Nombre del PDB (Pluggable Database) — debe coincidir con el estándar del proyecto
+      ORACLE_DATABASE: FREEPDB1
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  oracle_data:
