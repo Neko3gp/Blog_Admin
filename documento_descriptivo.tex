@@ -1,0 +1,147 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+
+\title{\textbf{Plan de Desarrollo y Distribución de Tareas}\\
+\large Proyecto 1\textsuperscript{a}. Evaluación: Administrador de Blog\\
+\normalsize Versión Definitiva}
+\author{Bases de Datos Avanzadas}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Descripción del Proyecto}
+El proyecto consiste en el desarrollo de un sistema de administración de un blog empleando una arquitectura dividida. La persistencia y validación de datos residirá íntegramente en Oracle Database mediante rutinas de PL/SQL, mientras que la interfaz de usuario se gestionará a través de una aplicación de consola en Python utilizando el conector \texttt{oracledb}.
+
+El modelo de datos comprende cinco entidades principales (\texttt{users}, \texttt{articles}, \texttt{comments}, \texttt{tags}, \texttt{categories}) y exige la resolución de dos relaciones de cardinalidad muchos a muchos (N:M).
+
+\section{Modelo de Datos (Corregido)}
+El diagrama original asignaba erróneamente los campos \texttt{name} y \texttt{url} a la tabla \texttt{comments}. La estructura corregida es la siguiente:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{users}: \texttt{id}, \texttt{name}, \texttt{email}
+    \item \textbf{articles}: \texttt{id}, \texttt{title}, \texttt{date}, \texttt{text} (\texttt{CLOB} o \texttt{VARCHAR2(4000)}), FK a \texttt{users}
+    \item \textbf{comments}: \texttt{id}, \texttt{content} (\texttt{CLOB} o \texttt{VARCHAR2(4000)}), \texttt{creation\_date}, FK a \texttt{users}, FK a \texttt{articles}
+    \item \textbf{tags}: \texttt{id}, \texttt{name}, \texttt{url}
+    \item \textbf{categories}: \texttt{id}, \texttt{name}, \texttt{url}
+    \item \textbf{article\_tags} (tabla puente N:M): FK compuesta \texttt{article\_id} + \texttt{tag\_id}, \texttt{ON DELETE CASCADE}
+    \item \textbf{article\_categories} (tabla puente N:M): FK compuesta \texttt{article\_id} + \texttt{category\_id}, \texttt{ON DELETE CASCADE}
+\end{itemize}
+
+Estos nombres de columna quedan \textbf{congelados} desde el borrador del lunes: no se modifican después, para que nadie tenga que reescribir código por un \textit{rename}.
+
+\subsection*{Nota técnica: manejo de CLOB en Python}
+Si se utiliza \texttt{CLOB}, el conector \texttt{oracledb} \textbf{no} regresa un string directamente al hacer \texttt{fetch}: regresa un objeto LOB. El Integrante 3 debe manejar esto de una de estas dos formas:
+\begin{itemize}
+    \item Llamar explícitamente a \texttt{.read()} sobre el valor antes de imprimirlo, o
+    \item Configurar un \texttt{outputtypehandler} al momento de crear la conexión, para que los CLOB se conviertan automáticamente a string.
+\end{itemize}
+Sin esto, la consola imprimirá algo como \texttt{<oracledb.LOB object at 0x...>} en vez del texto del artículo o comentario — esto es comportamiento esperado de la librería, no un error de la base de datos.
+
+\section{Parámetros de Configuración Universales}
+Para garantizar que el código funcione idénticamente en las tres computadoras sin modificar variables, el equipo utilizará este estándar obligatorio desde el Día 1, definido en el \texttt{docker-compose.yml} compartido:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parámetro} & \textbf{Valor} \\
+\midrule
+Docker Service / PDB & \texttt{FREEPDB2} \\
+Usuario BD & \texttt{blog\_admin} \\
+Contraseña BD & \texttt{admin123} \\
+Puerto & \texttt{1521} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Responsable de crear el \texttt{docker-compose.yml} el Día 1: \_\_\_\_\_\_\_\_\_\_\_\_}
+
+\section{Contrato de Nombres (Naming Conventions)}
+Para evitar bloqueos en la integración de Python, el Integrante 2 encapsulará el código en paquetes PL/SQL y el Integrante 3 utilizará estrictamente estos nombres en su \texttt{cursor.callproc()}. Todos los \texttt{SELECT} múltiples deben retornar un \texttt{SYS\_REFCURSOR} como parámetro \texttt{OUT}.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Entidad} & \textbf{Paquete} & \textbf{Ejemplo de Procedimientos} \\
+\midrule
+Usuarios & \texttt{pkg\_users} & \texttt{insert\_user}, \texttt{get\_all\_users} \\
+Artículos & \texttt{pkg\_articles} & \texttt{create\_article}, \texttt{assign\_tag}, \texttt{assign\_category} \\
+Comentarios & \texttt{pkg\_comments} & \texttt{add\_comment}, \texttt{get\_by\_article} \\
+Categorías & \texttt{pkg\_categories} & \texttt{insert\_category}, \texttt{get\_all} \\
+Etiquetas & \texttt{pkg\_tags} & \texttt{insert\_tag}, \texttt{get\_all} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Lógica de relaciones N:M}
+\begin{itemize}[leftmargin=*]
+    \item \texttt{pkg\_articles.create\_article} debe tener un parámetro \texttt{OUT} que devuelva el ID generado del artículo.
+    \item \texttt{pkg\_articles.assign\_tag(p\_article\_id, p\_tag\_id)} pobla \texttt{article\_tags} de forma atómica.
+    \item \texttt{pkg\_articles.assign\_category(p\_article\_id, p\_category\_id)} pobla \texttt{article\_categories} de forma atómica, siguiendo el mismo patrón que \texttt{assign\_tag}. \textbf{(Este procedimiento no estaba en el contrato original y debe agregarse: sin él, la relación N:M de categorías queda sin forma de poblarse desde Python.)}
+\end{itemize}
+
+\subsection*{Manejo de excepciones}
+Capturar violaciones de llaves foráneas y \texttt{NO\_DATA\_FOUND}, devolviendo mensajes limpios vía \texttt{RAISE\_APPLICATION\_ERROR}.
+
+\section{Entorno Compartido y Flujo de Trabajo}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Ramas de trabajo:} \texttt{feat/schema-db}, \texttt{feat/plsql-backend}, \texttt{feat/python-frontend}, fusionadas sobre \texttt{main} tras validación local. Nadie programa directamente en \texttt{main}.
+    \item \textbf{Revisión antes de fusionar:} quien haga el merge corre el código de esa rama al menos una vez de forma local antes de integrarlo, para no romper el trabajo de los otros dos.
+    \item \textbf{Orden de fusión:} 1\textsuperscript{o} DDL $\rightarrow$ 2\textsuperscript{o} PL/SQL $\rightarrow$ 3\textsuperscript{o} Python.
+\end{itemize}
+
+\section{Cronograma de Checkpoints (Meta: Viernes 7:00 AM)}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Lunes (Desbloqueo):} Creación del repositorio, \texttt{docker-compose.yml} con credenciales estándar, y despliegue del DDL con \textbf{datos semilla (Mock Data)} para que todo el equipo tenga información con qué trabajar desde el Día 1.
+    \item \textbf{Martes (Backend Base):} DDL definitivo fusionado en \texttt{main} y paquetes PL/SQL base (\texttt{pkg\_users}, \texttt{pkg\_articles}) listos y probados.
+    \item \textbf{Miércoles (Integración Python):} Resto de paquetes PL/SQL terminados e interfaz de consola de Python operando todo el CRUD, incluyendo el flujo N:M (asignar tags y categorías al crear un artículo). Prueba conjunta preliminar por la noche.
+    \item \textbf{Jueves temprano (Prueba Conjunta):} Ejecución end-to-end simultánea en \texttt{main}, con tiempo de reacción antes del cierre.
+    \item \textbf{Jueves (Documentación y Colchón):} Cada integrante ya debe haber comentado su propio código. El Integrante 3 compila el documento PDF final y las capturas. El resto del día queda como margen para corregir cualquier problema detectado en la prueba conjunta.
+\end{itemize}
+
+\section{Distribución de Roles y Tareas}
+
+\subsection{Integrante 1: Arquitectura de Base de Datos (DBA)}
+\textbf{Entregable:} \texttt{01\_schema.sql}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Estructura Base:} Crear las 5 tablas principales (incluyendo \texttt{comments} corregida con \texttt{content}, \texttt{creation\_date} y llaves foráneas a usuario y artículo) y las 2 tablas puente.
+    \item \textbf{Integridad:} Definir \texttt{ON DELETE CASCADE} en las tablas puente. Usar \texttt{CLOB} o \texttt{VARCHAR2(4000)} para los textos largos de artículos y comentarios.
+    \item \textbf{Datos Semilla (Mock Data):} Obligatorio incluir sentencias \texttt{INSERT} al final del script con 3 usuarios, 5 etiquetas, 3 categorías y 2 artículos de prueba.
+    \item \textbf{Borrador congelado:} Publicar el lunes un borrador con los nombres de columna ya definitivos.
+    \item \textbf{Documentación inline} de sus scripts SQL.
+\end{itemize}
+
+\subsection{Integrante 2: Desarrollo Backend en PL/SQL}
+\textbf{Entregable:} \texttt{02\_procedures.sql}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Paquetes CRUD:} Crear los 5 paquetes especificados en el Contrato de Nombres. Todos los \texttt{SELECT} múltiples deben retornar un \texttt{SYS\_REFCURSOR} como parámetro \texttt{OUT}.
+    \item \textbf{Lógica N:M:} \texttt{pkg\_articles.create\_article} con parámetro \texttt{OUT} para el ID generado; \texttt{assign\_tag} y \texttt{assign\_category} para poblar las tablas intermedias de forma atómica.
+    \item \textbf{Manejo de Excepciones:} Capturar \texttt{NO\_DATA\_FOUND} y violaciones de llaves foráneas, devolviendo mensajes limpios vía \texttt{RAISE\_APPLICATION\_ERROR}.
+    \item \textbf{Prueba} todos los procedimientos con bloques anónimos antes de subir.
+    \item \textbf{Documentación interna} de sus rutinas.
+\end{itemize}
+
+\subsection{Integrante 3: Desarrollo en Python y DevOps}
+\textbf{Entregables:} Pull Requests, menús en consola y Documento PDF final.
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Repositorio:} Inicializar Git, \texttt{.gitignore}, y compartir el \texttt{docker-compose.yml} configurado con las credenciales estándar.
+    \item \textbf{Capa de Conexión:} Programar el módulo con \texttt{oracledb} para establecer y cerrar la conexión con Oracle DB, configurando un \texttt{outputtypehandler} para que los \texttt{CLOB} se conviertan a string automáticamente.
+    \item \textbf{Interfaz de Consola (Frontend):} Desarrollar los menús interactivos donde el usuario final seleccionará operaciones (Ej. "1. Crear Usuario", "2. Publicar Artículo").
+    \item \textbf{Interacción N:M:} Al crear un artículo desde el menú, llamar a \texttt{create\_article}, capturar el ID de retorno, pedir al usuario los IDs de etiquetas y categorías, e invocar \texttt{assign\_tag} y \texttt{assign\_category} en bucle por cada una.
+    \item \textbf{Cursores:} Emplear \texttt{cursor.var(oracledb.DB\_TYPE\_CURSOR)} para extraer los resultados de los procedimientos de lectura e imprimirlos en la consola.
+    \item \textbf{Entregable final:} Generar los Pull Requests, integrar el código final en \texttt{main}, y maquetar el Documento PDF con la documentación de todo el equipo y capturas de la ejecución.
+\end{itemize}
+
+\end{document}
