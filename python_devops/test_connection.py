@@ -3,7 +3,7 @@ import oracledb
 # Credenciales estándar del proyecto (del README)
 USER = "blog_admin"
 PASSWORD = "admin123"
-DSN = "localhost:1521/FREEPDB1"
+DSN = "localhost:1521/FREEPDB2"
 
 def main():
     try:

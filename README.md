@@ -21,7 +21,7 @@ Proyecto de 1ª evaluación: sistema de administración de blog con persistencia
 |---|---|
 | Host | `localhost` |
 | Puerto | `1521` |
-| Service / PDB | `FREEPDB1` |
+| Service / PDB | `FREEPDB2` |
 | Usuario | `blog_admin` |
 | Password | `admin123` |
 
@@ -35,7 +35,7 @@ String de conexión para `oracledb`: `blog_admin/admin123@localhost:1521/FREEPDB
 
 ## Reglas del equipo
 
-- Nadie programa directo en `main`. Trabajar en `feat/schema-db`, `feat/plsql-backend` o `feat/python-frontend` según el rol.
+- Nadie programa directo en `main`. Trabajar en `/schema-db`, `/plsql-backend` o `/python-frontend` según el rol.
 - Antes de fusionar a `main`, correr el código de esa rama localmente al menos una vez.
 - Los nombres de columnas y el contrato de nombres de paquetes/procedimientos (ver documento del proyecto) están **congelados**: no se cambian sin avisar al equipo.
 - Orden de fusión: 1º DDL → 2º PL/SQL → 3º Python.
