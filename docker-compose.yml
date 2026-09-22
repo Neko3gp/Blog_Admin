@@ -9,7 +9,7 @@ services:
       APP_USER: blog_admin
       APP_USER_PASSWORD: admin123
       # Nombre del PDB (Pluggable Database) — debe coincidir con el estándar del proyecto
-      ORACLE_DATABASE: FREEPDB1
+      ORACLE_DATABASE: FREEPDB2
     ports:
       - "1521:1521"
     volumes:
