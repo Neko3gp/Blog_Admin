@@ -14,6 +14,7 @@ Uso:
 import oracledb
 
 # Credenciales estándar del equipo (ver README / docker-compose.yml)
+# IMPORTANTE: este valor debe coincidir exactamente con docker-compose.yml y el README.
 DB_USER = "blog_admin"
 DB_PASSWORD = "admin123"
 DB_DSN = "localhost:1521/FREEPDB2"
@@ -46,6 +47,25 @@ def get_connection():
     )
     connection.outputtypehandler = _clob_output_type_handler
     return connection
+
+
+def fetch_options(table, id_column, label_column, order_by=None):
+    """
+    Helper TEMPORAL para poblar dropdowns (ttk.Combobox) con pares (id, etiqueta),
+    ej. fetch_options("users", "id", "name") -> [(1, "Ana Torres"), (2, "Luis Fernández"), ...]
+
+    Usa un SELECT directo en vez de pasar por los paquetes de PL/SQL, porque los
+    procedimientos get_all_* de Samuel todavía no abren su cursor (ver TODOs en
+    02_procedures.sql). En cuanto esos procedimientos ya funcionen, hay que
+    reemplazar las llamadas a esta función por call_procedure_with_cursor(...)
+    y borrar este helper — es un puente, no la versión definitiva.
+    """
+    order_clause = f" ORDER BY {order_by}" if order_by else f" ORDER BY {id_column}"
+    query = f"SELECT {id_column}, {label_column} FROM {table}{order_clause}"
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(query)
+            return cursor.fetchall()
 
 
 def call_procedure(package_procedure, params=None):

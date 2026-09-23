@@ -1,242 +1,159 @@
 """
-main.py
-Interfaz de escritorio (tkinter) del Administrador de Blog.
+main_gui.py
+Punto de entrada de la GUI del Administrador de Blog.
 
-Reemplaza al menú de consola: la lógica de conexión no cambió,
-sigue viviendo en db_connection.py. Aquí solo cambia la capa visual.
+Rediseño de la ventana de 8 botones apilados hacia una navegación tipo
+feed/blog: barra lateral + área de contenido que cambia entre Feed,
+Usuarios, Categorías/Etiquetas y el formulario de Publicar Artículo
+(ver directivas_rediseño_gui.md).
 
-Cada función de acción está marcada como PENDIENTE hasta que
-Samuel suba los procedimientos PL/SQL reales — en ese momento,
-se descomenta la llamada a call_procedure / call_procedure_with_cursor.
+No cambia el modelo de datos, ni el Contrato de Nombres de PL/SQL, ni el
+contrato público de db_connection.py — solo la capa visual.
+
+Nota de plataforma: en macOS, tk.Button ignora bg/fg porque usa el widget
+nativo de Aqua. Por eso los botones de navegación del sidebar están hechos
+con tk.Label + bindings de clic/hover (_make_nav_button) en vez de
+tk.Button — así los colores sí se respetan en Mac, Windows y Linux por
+igual.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
 
-from db_connection import call_procedure, call_procedure_with_cursor
+import theme
+from views.feed import FeedView
+from views.article_detail import ArticleDetailView
+from views.users import UsersView
+from views.taxonomy import TaxonomyView
+from views.new_article import abrir_form_publicar_articulo
 
-
-# ---------- VENTANAS DE FORMULARIO ----------
-
-def abrir_form_crear_usuario():
-    ventana = tk.Toplevel()
-    ventana.title("Crear Usuario")
-    ventana.geometry("300x150")
-
-    tk.Label(ventana, text="Nombre:").pack(pady=(10, 0))
-    entry_nombre = tk.Entry(ventana, width=30)
-    entry_nombre.pack()
-
-    tk.Label(ventana, text="Email:").pack(pady=(10, 0))
-    entry_email = tk.Entry(ventana, width=30)
-    entry_email.pack()
-
-    def guardar():
-        nombre = entry_nombre.get().strip()
-        email = entry_email.get().strip()
-        if not nombre or not email:
-            messagebox.showwarning("Falta información", "Nombre y email son obligatorios.")
-            return
-        # TODO: cuando pkg_users.insert_user exista, descomentar:
-        # call_procedure("pkg_users.insert_user", [nombre, email])
-        messagebox.showinfo("Pendiente", "pkg_users.insert_user aún no está disponible.")
-        ventana.destroy()
-
-    tk.Button(ventana, text="Guardar", command=guardar).pack(pady=15)
+# Los colores viven en theme.py — cámbialos ahí y se reflejan en toda la app.
+SIDEBAR_BG = theme.SIDEBAR_BG
+SIDEBAR_TEXT = theme.SIDEBAR_TEXT
+SIDEBAR_TEXT_ACTIVE = theme.SIDEBAR_TEXT_ACTIVE
+SIDEBAR_HOVER_BG = theme.SIDEBAR_HOVER_BG
+SIDEBAR_SELECTED_BG = theme.SIDEBAR_SELECTED_BG
+SIDEBAR_DIVIDER = theme.SIDEBAR_DIVIDER
+SIDEBAR_MUTED = theme.SIDEBAR_MUTED
+CONTENT_BG = theme.CONTENT_BG
 
 
-def abrir_ver_usuarios():
-    ventana = tk.Toplevel()
-    ventana.title("Usuarios")
-    ventana.geometry("400x250")
+class BlogAdminApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Administrador de Blog")
+        self.geometry("1000x650")
+        self.minsize(820, 560)
 
-    lista = tk.Listbox(ventana, width=50)
-    lista.pack(padx=10, pady=10, fill="both", expand=True)
+        self._nav_buttons = {}  # clave de página -> Label, para marcar la activa
+        self._active_page = None
 
-    # TODO: cuando pkg_users.get_all_users exista, descomentar:
-    # rows = call_procedure_with_cursor("pkg_users.get_all_users")
-    # for row in rows:
-    #     lista.insert(tk.END, f"{row[0]} — {row[1]} ({row[2]})")
+        self._build_sidebar()
+        self._build_content_area()
+        self._show_feed()
 
-    lista.insert(tk.END, "pkg_users.get_all_users aún no está disponible.")
+    # ---------- estructura general ----------
 
+    def _build_sidebar(self):
+        sidebar = tk.Frame(self, bg=SIDEBAR_BG, width=210)
+        sidebar.pack(side="left", fill="y")
+        sidebar.pack_propagate(False)
 
-def abrir_form_publicar_articulo():
-    ventana = tk.Toplevel()
-    ventana.title("Publicar Artículo")
-    ventana.geometry("400x400")
+        tk.Label(
+            sidebar, text="Admin de Blog", font=("Segoe UI", 13, "bold"),
+            bg=SIDEBAR_BG, fg=SIDEBAR_TEXT_ACTIVE, pady=20,
+        ).pack(fill="x")
 
-    tk.Label(ventana, text="Título:").pack(pady=(10, 0))
-    entry_titulo = tk.Entry(ventana, width=40)
-    entry_titulo.pack()
+        nav_items = [
+            ("feed", "Feed principal", self._show_feed),
+            ("users", "Usuarios", self._show_users),
+            ("taxonomy", "Categorías / Etiquetas", self._show_taxonomy),
+        ]
+        for clave, texto, comando in nav_items:
+            self._nav_buttons[clave] = self._make_nav_button(sidebar, texto, comando, page_key=clave)
 
-    tk.Label(ventana, text="Texto:").pack(pady=(10, 0))
-    text_cuerpo = tk.Text(ventana, width=40, height=6)
-    text_cuerpo.pack()
+        tk.Frame(sidebar, bg=SIDEBAR_DIVIDER, height=1).pack(fill="x", pady=10)
 
-    tk.Label(ventana, text="ID de usuario autor:").pack(pady=(10, 0))
-    entry_user_id = tk.Entry(ventana, width=10)
-    entry_user_id.pack()
+        tk.Label(
+            sidebar, text="ACCIONES", font=("Segoe UI", 8, "bold"),
+            bg=SIDEBAR_BG, fg=SIDEBAR_MUTED, anchor="w", padx=20,
+        ).pack(fill="x")
 
-    tk.Label(ventana, text="IDs de etiquetas (separados por coma):").pack(pady=(10, 0))
-    entry_tags = tk.Entry(ventana, width=40)
-    entry_tags.pack()
+        self._make_nav_button(
+            sidebar, "+ Publicar artículo",
+            lambda: abrir_form_publicar_articulo(self, on_saved=self._show_feed),
+        )
 
-    tk.Label(ventana, text="IDs de categorías (separados por coma):").pack(pady=(10, 0))
-    entry_categorias = tk.Entry(ventana, width=40)
-    entry_categorias.pack()
+    def _make_nav_button(self, parent, texto, comando, page_key=None):
+        """
+        Crea un renglón de navegación clicable usando tk.Label en vez de
+        tk.Button (ver nota de plataforma arriba). Si se pasa page_key,
+        el renglón se resalta cuando esa página está activa.
+        """
+        lbl = tk.Label(
+            parent, text=texto, bg=SIDEBAR_BG, fg=SIDEBAR_TEXT,
+            anchor="w", padx=20, pady=10, font=("Segoe UI", 10),
+            cursor="hand2",
+        )
+        lbl.pack(fill="x")
 
-    def guardar():
-        titulo = entry_titulo.get().strip()
-        texto = text_cuerpo.get("1.0", tk.END).strip()
-        user_id = entry_user_id.get().strip()
+        def on_click(_event):
+            comando()
 
-        if not titulo or not texto or not user_id:
-            messagebox.showwarning("Falta información", "Título, texto y usuario son obligatorios.")
-            return
+        def on_enter(_event):
+            if page_key is None or page_key != self._active_page:
+                lbl.configure(bg=SIDEBAR_HOVER_BG, fg=SIDEBAR_TEXT_ACTIVE)
 
-        # TODO: cuando pkg_articles.create_article exista, descomentar y capturar
-        # el ID de retorno (parámetro OUT) para después llamar assign_tag / assign_category:
-        #
-        # article_id = ...  # resultado del OUT de create_article
-        # for tag_id in entry_tags.get().split(","):
-        #     tag_id = tag_id.strip()
-        #     if tag_id:
-        #         call_procedure("pkg_articles.assign_tag", [article_id, tag_id])
-        # for cat_id in entry_categorias.get().split(","):
-        #     cat_id = cat_id.strip()
-        #     if cat_id:
-        #         call_procedure("pkg_articles.assign_category", [article_id, cat_id])
+        def on_leave(_event):
+            if page_key is None or page_key != self._active_page:
+                lbl.configure(bg=SIDEBAR_BG, fg=SIDEBAR_TEXT)
 
-        messagebox.showinfo("Pendiente", "pkg_articles.create_article aún no está disponible.")
-        ventana.destroy()
+        lbl.bind("<Button-1>", on_click)
+        lbl.bind("<Enter>", on_enter)
+        lbl.bind("<Leave>", on_leave)
+        return lbl
 
-    tk.Button(ventana, text="Publicar", command=guardar).pack(pady=15)
+    def _set_active_nav(self, page_key):
+        self._active_page = page_key
+        for clave, lbl in self._nav_buttons.items():
+            if clave == page_key:
+                lbl.configure(bg=SIDEBAR_SELECTED_BG, fg=SIDEBAR_TEXT_ACTIVE)
+            else:
+                lbl.configure(bg=SIDEBAR_BG, fg=SIDEBAR_TEXT)
 
+    def _build_content_area(self):
+        self.content = tk.Frame(self, bg=CONTENT_BG)
+        self.content.pack(side="right", fill="both", expand=True)
 
-def abrir_ver_articulos():
-    ventana = tk.Toplevel()
-    ventana.title("Artículos")
-    ventana.geometry("400x250")
+    def _clear_content(self):
+        for widget in self.content.winfo_children():
+            widget.destroy()
 
-    lista = tk.Listbox(ventana, width=50)
-    lista.pack(padx=10, pady=10, fill="both", expand=True)
+    # ---------- navegación ----------
 
-    # TODO: cuando pkg_articles.get_all_articles exista, descomentar:
-    # rows = call_procedure_with_cursor("pkg_articles.get_all_articles")
-    # for row in rows:
-    #     lista.insert(tk.END, f"{row[0]} — {row[1]}")
+    def _show_feed(self):
+        self._clear_content()
+        self._set_active_nav("feed")
+        FeedView(self.content, on_open_article=self._show_article_detail).pack(fill="both", expand=True)
 
-    lista.insert(tk.END, "pkg_articles.get_all_articles aún no está disponible.")
+    def _show_users(self):
+        self._clear_content()
+        self._set_active_nav("users")
+        UsersView(self.content).pack(fill="both", expand=True)
 
+    def _show_taxonomy(self):
+        self._clear_content()
+        self._set_active_nav("taxonomy")
+        TaxonomyView(self.content).pack(fill="both", expand=True)
 
-def abrir_form_comentario():
-    ventana = tk.Toplevel()
-    ventana.title("Agregar Comentario")
-    ventana.geometry("350x300")
+    def _show_article_detail(self, article):
+        self._clear_content()
+        self._set_active_nav(None)
+        ArticleDetailView(self.content, article, on_back=self._show_feed).pack(fill="both", expand=True)
 
-    tk.Label(ventana, text="ID de artículo:").pack(pady=(10, 0))
-    entry_article_id = tk.Entry(ventana, width=10)
-    entry_article_id.pack()
-
-    tk.Label(ventana, text="ID de usuario:").pack(pady=(10, 0))
-    entry_user_id = tk.Entry(ventana, width=10)
-    entry_user_id.pack()
-
-    tk.Label(ventana, text="Comentario:").pack(pady=(10, 0))
-    text_contenido = tk.Text(ventana, width=35, height=6)
-    text_contenido.pack()
-
-    def guardar():
-        # TODO: cuando pkg_comments.add_comment exista, descomentar:
-        # call_procedure("pkg_comments.add_comment", [
-        #     text_contenido.get("1.0", tk.END).strip(),
-        #     entry_user_id.get().strip(),
-        #     entry_article_id.get().strip(),
-        # ])
-        messagebox.showinfo("Pendiente", "pkg_comments.add_comment aún no está disponible.")
-        ventana.destroy()
-
-    tk.Button(ventana, text="Comentar", command=guardar).pack(pady=15)
-
-
-def abrir_ver_comentarios():
-    ventana = tk.Toplevel()
-    ventana.title("Comentarios de un Artículo")
-    ventana.geometry("400x300")
-
-    tk.Label(ventana, text="ID de artículo:").pack(pady=(10, 0))
-    entry_article_id = tk.Entry(ventana, width=10)
-    entry_article_id.pack()
-
-    lista = tk.Listbox(ventana, width=50)
-    lista.pack(padx=10, pady=10, fill="both", expand=True)
-
-    def buscar():
-        lista.delete(0, tk.END)
-        # TODO: cuando pkg_comments.get_by_article exista, descomentar:
-        # rows = call_procedure_with_cursor("pkg_comments.get_by_article", [entry_article_id.get().strip()])
-        # for row in rows:
-        #     lista.insert(tk.END, f"{row[2]} — {row[1]}")
-        lista.insert(tk.END, "pkg_comments.get_by_article aún no está disponible.")
-
-    tk.Button(ventana, text="Buscar", command=buscar).pack(pady=5)
-
-
-def abrir_form_categoria():
-    _abrir_form_generico("Crear Categoría", "pkg_categories.insert_category")
-
-
-def abrir_form_etiqueta():
-    _abrir_form_generico("Crear Etiqueta", "pkg_tags.insert_tag")
-
-
-def _abrir_form_generico(titulo_ventana, nombre_procedimiento):
-    ventana = tk.Toplevel()
-    ventana.title(titulo_ventana)
-    ventana.geometry("300x150")
-
-    tk.Label(ventana, text="Nombre:").pack(pady=(10, 0))
-    entry_nombre = tk.Entry(ventana, width=30)
-    entry_nombre.pack()
-
-    tk.Label(ventana, text="URL:").pack(pady=(10, 0))
-    entry_url = tk.Entry(ventana, width=30)
-    entry_url.pack()
-
-    def guardar():
-        # TODO: cuando el procedimiento exista, descomentar:
-        # call_procedure(nombre_procedimiento, [entry_nombre.get().strip(), entry_url.get().strip()])
-        messagebox.showinfo("Pendiente", f"{nombre_procedimiento} aún no está disponible.")
-        ventana.destroy()
-
-    tk.Button(ventana, text="Guardar", command=guardar).pack(pady=15)
-
-
-# ---------- VENTANA PRINCIPAL ----------
 
 def main():
-    root = tk.Tk()
-    root.title("Administrador de Blog")
-    root.geometry("300x400")
-
-    ttk.Label(root, text="Administrador de Blog", font=("Arial", 14, "bold")).pack(pady=15)
-
-    botones = [
-        ("Crear Usuario", abrir_form_crear_usuario),
-        ("Ver Usuarios", abrir_ver_usuarios),
-        ("Publicar Artículo", abrir_form_publicar_articulo),
-        ("Ver Artículos", abrir_ver_articulos),
-        ("Agregar Comentario", abrir_form_comentario),
-        ("Ver Comentarios de un Artículo", abrir_ver_comentarios),
-        ("Crear Categoría", abrir_form_categoria),
-        ("Crear Etiqueta", abrir_form_etiqueta),
-    ]
-
-    for texto, funcion in botones:
-        ttk.Button(root, text=texto, command=funcion, width=30).pack(pady=4)
-
-    root.mainloop()
+    app = BlogAdminApp()
+    app.mainloop()
 
 
 if __name__ == "__main__":
