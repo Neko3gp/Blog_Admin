@@ -1,62 +1,78 @@
 """
 views/users.py
-Vista de usuarios: lista + formulario de creación, reemplazando las
-ventanas emergentes sueltas por un panel embebido en la navegación
-principal.
-
-Nota: todas las Label de aquí llevan fg explícito. Sin eso, tkinter le
-pone a la letra el color por defecto del sistema (que en modo oscuro de
-macOS es blanco), y sobre un fondo claro el texto queda invisible.
+Vista de usuarios migrada a CustomTkinter. 
+Lista interactiva + formulario de creación integrado como panel lateral.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
+import customtkinter as ctk
 
 from utils import safe_get_all
-from widgets.scrollframe import ScrollableFrame
 import theme
 
 
-class UsersView(tk.Frame):
+class UsersView(ctk.CTkFrame):
     def __init__(self, parent):
-        super().__init__(parent, bg=theme.PAGE_BG)
+        super().__init__(parent, fg_color=theme.PAGE_BG)
 
-        tk.Label(
-            self, text="Usuarios", font=("Segoe UI", 14, "bold"),
-            bg=theme.PAGE_BG, fg=theme.PAGE_FG,
-        ).pack(anchor="w", padx=20, pady=(16, 8))
+        ctk.CTkLabel(
+            self, text="Usuarios", 
+            font=ctk.CTkFont(family="Helvetica", size=22, weight="bold"),
+            text_color=theme.PAGE_FG
+        ).pack(anchor="w", padx=20, pady=(20, 10))
 
-        body = tk.Frame(self, bg=theme.PAGE_BG)
-        body.pack(fill="both", expand=True, padx=20, pady=(0, 16))
+        body = ctk.CTkFrame(self, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
-        list_col = tk.Frame(body, bg=theme.PAGE_BG)
+        list_col = ctk.CTkFrame(body, fg_color="transparent")
         list_col.pack(side="left", fill="both", expand=True)
-        self.scroll = ScrollableFrame(list_col, bg=theme.PAGE_BG)
+        
+        # ScrollableFrame moderno: oculta la barra automáticamente si no es necesaria
+        self.scroll = ctk.CTkScrollableFrame(
+            list_col, fg_color="transparent",
+            scrollbar_button_color=theme.SCROLLBAR_FG,
+            scrollbar_button_hover_color=theme.SCROLLBAR_HOVER
+        )
         self.scroll.pack(fill="both", expand=True)
-        self.list_container = self.scroll.inner
 
-        # form_col usa PANEL_BG/PANEL_FG a propósito: es un color fijo, no
-        # ligado a PAGE_BG, para que el panel siempre se note como una
-        # tarjeta aparte, sin importar qué tan oscuro sea el fondo de página.
-        form_col = tk.Frame(body, bg=theme.PANEL_BG, highlightbackground=theme.PANEL_BORDER, highlightthickness=1, padx=16, pady=16)
-        form_col.pack(side="right", fill="y", padx=(16, 0))
+        form_col = ctk.CTkFrame(
+            body, fg_color=theme.PANEL_BG, border_color=theme.PANEL_BORDER, 
+            border_width=1, corner_radius=10
+        )
+        form_col.pack(side="right", fill="y", padx=(16, 0), ipadx=16, ipady=16)
+        
         self._build_form(form_col)
-
         self.reload()
 
     def _build_form(self, parent):
-        tk.Label(
-            parent, text="Nuevo usuario", font=("Segoe UI", 11, "bold"),
-            bg=theme.PANEL_BG, fg=theme.PANEL_FG,
-        ).pack(anchor="w")
+        ctk.CTkLabel(
+            parent, text="Nuevo usuario", 
+            font=ctk.CTkFont(family="Helvetica", size=15, weight="bold"),
+            text_color=theme.PANEL_FG
+        ).pack(anchor="w", padx=16, pady=(16, 10))
 
-        tk.Label(parent, text="Nombre:", bg=theme.PANEL_BG, fg=theme.PANEL_FG).pack(anchor="w", pady=(10, 0))
-        entry_nombre = tk.Entry(parent, width=28, bg=theme.ENTRY_BG, fg=theme.ENTRY_FG, insertbackground=theme.ENTRY_FG)
-        entry_nombre.pack()
+        ctk.CTkLabel(
+            parent, text="Nombre:", text_color=theme.PANEL_FG,
+            font=ctk.CTkFont(family="Helvetica", size=13)
+        ).pack(anchor="w", padx=16, pady=(10, 0))
+        
+        entry_nombre = ctk.CTkEntry(
+            parent, width=220, fg_color=theme.ENTRY_BG, 
+            border_color=theme.ENTRY_BORDER, text_color=theme.ENTRY_FG
+        )
+        entry_nombre.pack(padx=16, pady=(0, 10))
 
-        tk.Label(parent, text="Email:", bg=theme.PANEL_BG, fg=theme.PANEL_FG).pack(anchor="w", pady=(10, 0))
-        entry_email = tk.Entry(parent, width=28, bg=theme.ENTRY_BG, fg=theme.ENTRY_FG, insertbackground=theme.ENTRY_FG)
-        entry_email.pack()
+        ctk.CTkLabel(
+            parent, text="Email:", text_color=theme.PANEL_FG,
+            font=ctk.CTkFont(family="Helvetica", size=13)
+        ).pack(anchor="w", padx=16, pady=(10, 0))
+        
+        entry_email = ctk.CTkEntry(
+            parent, width=220, fg_color=theme.ENTRY_BG, 
+            border_color=theme.ENTRY_BORDER, text_color=theme.ENTRY_FG
+        )
+        entry_email.pack(padx=16, pady=(0, 10))
 
         def guardar():
             nombre = entry_nombre.get().strip()
@@ -64,44 +80,53 @@ class UsersView(tk.Frame):
             if not nombre or not email:
                 messagebox.showwarning("Falta información", "Nombre y email son obligatorios.")
                 return
-            # TODO: cuando pkg_users.insert_user tenga lógica real, descomentar:
-            # call_procedure("pkg_users.insert_user", [nombre, email])
-            # self.reload()
+                
             messagebox.showinfo("Pendiente", "pkg_users.insert_user aún no está disponible.")
             entry_nombre.delete(0, tk.END)
             entry_email.delete(0, tk.END)
 
-        ttk.Button(parent, text="Guardar", command=guardar).pack(pady=15)
+        ctk.CTkButton(
+            parent, text="Guardar", command=guardar,
+            fg_color=theme.BTN_SECONDARY_BG, hover_color=theme.BTN_SECONDARY_HOVER,
+            text_color=theme.BTN_SECONDARY_FG, border_width=1, 
+            border_color=theme.BTN_SECONDARY_BORDER, corner_radius=6
+        ).pack(pady=20)
 
     def reload(self):
-        for widget in self.list_container.winfo_children():
+        for widget in self.scroll.winfo_children():
             widget.destroy()
 
         rows = safe_get_all("pkg_users.get_all_users")
 
         if rows is None:
-            tk.Label(
-                self.list_container, text="pendiente de conectar con pkg_users.get_all_users",
-                font=("Segoe UI", 9, "italic"), fg=theme.TEXT_PLACEHOLDER, bg=theme.PAGE_BG,
+            ctk.CTkLabel(
+                self.scroll, text="pendiente de conectar con pkg_users.get_all_users",
+                font=ctk.CTkFont(family="Segoe UI", size=12, slant="italic"), 
+                text_color=theme.TEXT_PLACEHOLDER
             ).pack(anchor="w", pady=10)
             return
 
         if not rows:
-            tk.Label(
-                self.list_container, text="Todavía no hay usuarios.",
-                font=("Segoe UI", 9, "italic"), fg=theme.TEXT_PLACEHOLDER, bg=theme.PAGE_BG,
+            ctk.CTkLabel(
+                self.scroll, text="Todavía no hay usuarios.",
+                font=ctk.CTkFont(family="Segoe UI", size=12, slant="italic"), 
+                text_color=theme.TEXT_PLACEHOLDER
             ).pack(anchor="w", pady=10)
             return
 
         for row in rows:
             _id, nombre, email = row[0], row[1], row[2]
-            item = tk.Frame(self.list_container, bg=theme.PANEL_BG)
-            item.pack(fill="x", pady=3)
-            tk.Label(
-                item, text=nombre, font=("Segoe UI", 10, "bold"),
-                bg=theme.PANEL_BG, fg=theme.PANEL_FG, anchor="w",
-            ).pack(fill="x", padx=10, pady=(6, 0))
-            tk.Label(
-                item, text=email, font=("Segoe UI", 9),
-                fg=theme.TEXT_MUTED, bg=theme.PANEL_BG, anchor="w",
-            ).pack(fill="x", padx=10, pady=(0, 6))
+            
+            # Tarjeta de usuario moderna
+            item = ctk.CTkFrame(self.scroll, fg_color=theme.ENTRY_BG, corner_radius=6)
+            item.pack(fill="x", pady=4)
+            
+            ctk.CTkLabel(
+                item, text=nombre, font=ctk.CTkFont(family="Segoe UI", size=13, weight="bold"),
+                text_color=theme.PANEL_FG
+            ).pack(fill="x", padx=12, pady=(8, 0), anchor="w")
+            
+            ctk.CTkLabel(
+                item, text=email, font=ctk.CTkFont(family="Segoe UI", size=11),
+                text_color=theme.TEXT_MUTED
+            ).pack(fill="x", padx=12, pady=(0, 8), anchor="w")

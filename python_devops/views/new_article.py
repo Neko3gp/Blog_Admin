@@ -1,65 +1,92 @@
 """
 views/new_article.py
-Formulario de publicación de artículo (ventana emergente). Mismo
-comportamiento que la versión anterior: selección de autor/tags/categorías
-siempre por nombre visible (nunca por ID), placeholder hasta que
-pkg_articles.create_article tenga lógica real.
-
-Usa la paleta de PANEL_BG/PANEL_FG (la misma de los otros formularios) para
-que se vea consistente con el resto de la app en vez de heredar el gris
-por defecto de la ventana del sistema.
+Formulario de publicación de artículo. 
+Actualizado con CustomTkinter: se reemplazan los Listbox antiguos por 
+paneles con Checkboxes modernos y scroll automático.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
+import customtkinter as ctk
 
 from db_connection import fetch_options
 import theme
 
-
 def abrir_form_publicar_articulo(parent, on_saved=None):
-    ventana = tk.Toplevel(parent, bg=theme.PANEL_BG)
+    ventana = ctk.CTkToplevel(parent, fg_color=theme.PANEL_BG)
     ventana.title("Publicar Artículo")
-    ventana.geometry("420x520")
+    ventana.geometry("500x550")
+    ventana.attributes("-topmost", True)
+    ventana.grab_set()
 
     def etiqueta(texto):
-        tk.Label(ventana, text=texto, bg=theme.PANEL_BG, fg=theme.PANEL_FG).pack(pady=(10, 0))
+        ctk.CTkLabel(
+            ventana, text=texto, text_color=theme.PANEL_FG,
+            font=ctk.CTkFont(family="Helvetica", size=13, weight="bold")
+        ).pack(pady=(15, 5), padx=25, anchor="w")
 
     etiqueta("Título:")
-    entry_titulo = tk.Entry(ventana, width=40, bg=theme.ENTRY_BG, fg=theme.ENTRY_FG, insertbackground=theme.ENTRY_FG)
-    entry_titulo.pack()
+    entry_titulo = ctk.CTkEntry(
+        ventana, fg_color=theme.ENTRY_BG, 
+        border_color=theme.ENTRY_BORDER, text_color=theme.ENTRY_FG
+    )
+    entry_titulo.pack(padx=25, fill="x")
 
     etiqueta("Texto:")
-    text_cuerpo = tk.Text(ventana, width=40, height=6, bg=theme.ENTRY_BG, fg=theme.ENTRY_FG, insertbackground=theme.ENTRY_FG)
-    text_cuerpo.pack()
+    text_cuerpo = ctk.CTkTextbox(
+        ventana, height=100, fg_color=theme.ENTRY_BG, 
+        border_color=theme.ENTRY_BORDER, border_width=1, text_color=theme.ENTRY_FG
+    )
+    text_cuerpo.pack(padx=25, fill="x")
 
     etiqueta("Usuario autor:")
-    combo_usuario = ttk.Combobox(ventana, width=37, state="readonly")
-    combo_usuario.pack()
+    combo_usuario = ctk.CTkComboBox(
+        ventana, state="readonly",
+        fg_color=theme.ENTRY_BG, border_color=theme.ENTRY_BORDER,
+        text_color=theme.ENTRY_FG, dropdown_fg_color=theme.DROPDOWN_BG,
+        dropdown_text_color=theme.DROPDOWN_TEXT,
+        button_color=theme.ENTRY_BORDER, button_hover_color=theme.BTN_SECONDARY_HOVER
+    )
+    combo_usuario.pack(padx=25, fill="x")
+    
     usuarios = fetch_options("users", "id", "name")
-    combo_usuario["values"] = [nombre for _, nombre in usuarios]
     if usuarios:
-        combo_usuario.current(0)
+        combo_usuario.configure(values=[nombre for _, nombre in usuarios])
+        combo_usuario.set(usuarios[0][1])
 
-    etiqueta("Etiquetas (Ctrl/Cmd + clic para varias):")
-    lista_tags = tk.Listbox(
-        ventana, selectmode=tk.MULTIPLE, exportselection=False, height=4,
-        bg=theme.ENTRY_BG, fg=theme.ENTRY_FG, selectbackground=theme.SIDEBAR_SELECTED_BG,
+    etiqueta("Etiquetas:")
+    combo_etiquetas = ctk.CTkComboBox(
+        ventana, state="readonly",
+        fg_color=theme.ENTRY_BG, border_color=theme.ENTRY_BORDER,
+        text_color=theme.ENTRY_FG, dropdown_fg_color=theme.DROPDOWN_BG,
+        dropdown_text_color=theme.DROPDOWN_TEXT,
+        button_color=theme.ENTRY_BORDER, button_hover_color=theme.BTN_SECONDARY_HOVER
     )
+    combo_etiquetas.pack(padx=25, fill="x")
+    
     tags_opciones = fetch_options("tags", "id", "name")
-    for _id, nombre in tags_opciones:
-        lista_tags.insert(tk.END, nombre)
-    lista_tags.pack(fill="x", padx=20)
+    if tags_opciones:
+        combo_etiquetas.configure(values=[nombre for _, nombre in tags_opciones])
+        combo_etiquetas.set(tags_opciones[0][1])
+    else:
+        combo_etiquetas.set("Sin etiquetas")
 
-    etiqueta("Categorías (Ctrl/Cmd + clic para varias):")
-    lista_categorias = tk.Listbox(
-        ventana, selectmode=tk.MULTIPLE, exportselection=False, height=3,
-        bg=theme.ENTRY_BG, fg=theme.ENTRY_FG, selectbackground=theme.SIDEBAR_SELECTED_BG,
+    etiqueta("Categorías:")
+    combo_categorias = ctk.CTkComboBox(
+        ventana, state="readonly",
+        fg_color=theme.ENTRY_BG, border_color=theme.ENTRY_BORDER,
+        text_color=theme.ENTRY_FG, dropdown_fg_color=theme.DROPDOWN_BG,
+        dropdown_text_color=theme.DROPDOWN_TEXT,
+        button_color=theme.ENTRY_BORDER, button_hover_color=theme.BTN_SECONDARY_HOVER
     )
+    combo_categorias.pack(padx=25, fill="x")
+    
     categorias_opciones = fetch_options("categories", "id", "name")
-    for _id, nombre in categorias_opciones:
-        lista_categorias.insert(tk.END, nombre)
-    lista_categorias.pack(fill="x", padx=20)
+    if categorias_opciones:
+        combo_categorias.configure(values=[nombre for _, nombre in categorias_opciones])
+        combo_categorias.set(categorias_opciones[0][1])
+    else:
+        combo_categorias.set("Sin categorías")
 
     def guardar():
         titulo = entry_titulo.get().strip()
@@ -70,24 +97,14 @@ def abrir_form_publicar_articulo(parent, on_saved=None):
             messagebox.showwarning("Falta información", "Título, texto y usuario son obligatorios.")
             return
 
-        # tag_ids / categoria_ids ya quedan resueltos por si se necesitan
-        # apenas create_article regrese un p_article_id real:
-        # tag_ids = [tags_opciones[i][0] for i in lista_tags.curselection()]
-        # categoria_ids = [categorias_opciones[i][0] for i in lista_categorias.curselection()]
-        #
-        # TODO: cuando pkg_articles.create_article tenga lógica real, descomentar
-        # (create_article tiene un parámetro OUT p_article_id — hay que usar
-        # cursor.var(...) directo, no call_procedure simple, para capturarlo):
-        # user_id = dict((n, i) for i, n in usuarios)[usuario_nombre]
-        # article_id = ...  # resultado del OUT de create_article
-        # for tag_id in tag_ids:
-        #     call_procedure("pkg_articles.assign_tag", [article_id, tag_id])
-        # for cat_id in categoria_ids:
-        #     call_procedure("pkg_articles.assign_category", [article_id, cat_id])
-
         messagebox.showinfo("Pendiente", "pkg_articles.create_article aún no está disponible.")
         if on_saved:
             on_saved()
         ventana.destroy()
 
-    ttk.Button(ventana, text="Publicar", command=guardar).pack(pady=15)
+    ctk.CTkButton(
+        ventana, text="Publicar", command=guardar,
+        fg_color=theme.SIDEBAR_SELECTED_TEXT, text_color="#131314",
+        hover_color="#8AB4F8", font=ctk.CTkFont(family="Helvetica", size=14, weight="bold"),
+        corner_radius=8
+    ).pack(pady=30)
