@@ -1,52 +1,52 @@
 """
-theme.py
-Paleta de colores centralizada de toda la GUI. Cambia un valor aquí y se
-refleja en todas las vistas.
-
-Los colores van EN PAREJAS fondo/texto (ej. PAGE_BG + PAGE_FG). Si cambias
-un fondo, revisa que su texto emparejado siga teniendo buen contraste —
-por eso viven juntos aquí y no sueltos en cada archivo.
+Paleta de colores centralizada de toda la GUI.
+Se han agregado variables para Dropdowns, Inputs, Botones Secundarios y Scrollbars.
 """
 
-# ---------- Superficie de "página" ----------
-# Fondo del feed, el detalle de artículo, y del fondo detrás de las listas.
-# Este es el que edita quien quiera un modo oscuro/claro distinto.
-PAGE_BG = "#ffffff"
-# Texto que va SOBRE PAGE_BG (títulos de tarjetas, cuerpo de artículos).
-# Si vuelves PAGE_BG oscuro, sube este a un tono claro para que no
-# desaparezca el texto (igual que le pasó al panel antes de este cambio).
-PAGE_FG = "#1a1a1b"
+# Fondo principal
+CONTENT_BG = "#131314"
+CONTENT_FG = "#E3E3E3"
 
-# Fondo del área de contenido, detrás de las tarjetas del feed.
-CONTENT_BG = "#f6f7f8"
-CONTENT_FG = "#1a1a1b"
+# Superficie de "página"
+PAGE_BG = "#1E1F22"
+PAGE_FG = "#E3E3E3"
 
-# ---------- Panel / tarjetas secundarias ----------
-# Fondo fijo del panel lateral de formularios (Nuevo usuario, Nueva
-# categoría, etc.) y de las filas de listas y comentarios. A propósito NO
-# depende de PAGE_BG: así el panel siempre se distingue como una "tarjeta"
-# aparte, sin importar qué tan oscuro pongas el fondo de página.
-PANEL_BG = "#f6f7f8"
-PANEL_FG = "#1a1a1b"
-PANEL_BORDER = "#d8dadd"
+# Paneles secundarios / Formularios
+PANEL_BG = "#1E1F22"
+PANEL_FG = "#E3E3E3"
+PANEL_BORDER = "#444746"
 
-# Fondo/texto de los campos de captura (Entry/Text) dentro de esos paneles.
-ENTRY_BG = "#ffffff"
-ENTRY_FG = "#1a1a1b"
+# Inputs de texto
+ENTRY_BG = "#282A2D"
+ENTRY_FG = "#E3E3E3"
+ENTRY_BORDER = "#444746"
 
-# Texto secundario (metadatos, fechas, autores) — funciona razonablemente
-# sobre fondos claros u oscuros de esta paleta.
-TEXT_MUTED = "#7c7c7c"
-TEXT_PLACEHOLDER = "#8a8a8a"
+# Dropdowns (Combobox)
+DROPDOWN_BG = "#282A2D"
+DROPDOWN_FG = "#E3E3E3"
+DROPDOWN_TEXT = "#E3E3E3"
 
-# Bordes de tarjeta
-CARD_BORDER = "#e3e3e3"
+# Botones Secundarios
+BTN_SECONDARY_BG = "#282A2D"
+BTN_SECONDARY_FG = "#A8C7FA"
+BTN_SECONDARY_HOVER = "#333538"
+BTN_SECONDARY_BORDER = "#444746"
+
+# Textos secundarios
+TEXT_MUTED = "#8E918F"
+TEXT_PLACEHOLDER = "#8E918F"
 
 # ---------- Sidebar de navegación ----------
-SIDEBAR_BG = "#1a1a1b"
-SIDEBAR_TEXT = "#e6e6e6"
-SIDEBAR_TEXT_ACTIVE = "#ffffff"
-SIDEBAR_HOVER_BG = "#343536"
-SIDEBAR_SELECTED_BG = "#3a6df0"
-SIDEBAR_DIVIDER = "#343536"
-SIDEBAR_MUTED = "#8a8a8a"
+SIDEBAR_BG = "#1E1F22"
+SIDEBAR_TEXT = "#C4C7C5"
+SIDEBAR_TEXT_ACTIVE = "#E3E3E3"
+SIDEBAR_HOVER_BG = "#333538"
+# Colores corregidos para evitar opacidad: fondo sutil y texto claro
+SIDEBAR_SELECTED_BG = "#333538"       
+SIDEBAR_SELECTED_TEXT = "#A8C7FA"     
+SIDEBAR_DIVIDER = "#444746"
+SIDEBAR_MUTED = "#8E918F"
+
+# Scrollbars
+SCROLLBAR_FG = "#444746"
+SCROLLBAR_HOVER = "#8E918F"

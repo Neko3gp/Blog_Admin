@@ -17,7 +17,12 @@ tk.Button — así los colores sí se respetan en Mac, Windows y Linux por
 igual.
 """
 
-import tkinter as tk
+"""
+Punto de entrada de la GUI del Administrador de Blog.
+Rediseño implementando una barra lateral flotante e independiente del área de contenido.
+"""
+
+import customtkinter as ctk
 
 import theme
 from views.feed import FeedView
@@ -26,109 +31,118 @@ from views.users import UsersView
 from views.taxonomy import TaxonomyView
 from views.new_article import abrir_form_publicar_articulo
 
-# Los colores viven en theme.py — cámbialos ahí y se reflejan en toda la app.
-SIDEBAR_BG = theme.SIDEBAR_BG
-SIDEBAR_TEXT = theme.SIDEBAR_TEXT
-SIDEBAR_TEXT_ACTIVE = theme.SIDEBAR_TEXT_ACTIVE
-SIDEBAR_HOVER_BG = theme.SIDEBAR_HOVER_BG
-SIDEBAR_SELECTED_BG = theme.SIDEBAR_SELECTED_BG
-SIDEBAR_DIVIDER = theme.SIDEBAR_DIVIDER
-SIDEBAR_MUTED = theme.SIDEBAR_MUTED
-CONTENT_BG = theme.CONTENT_BG
+ctk.set_appearance_mode("dark")
 
-
-class BlogAdminApp(tk.Tk):
+class BlogAdminApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Administrador de Blog")
-        self.geometry("1000x650")
+        self.geometry("1050x680")
         self.minsize(820, 560)
+        self.configure(fg_color=theme.CONTENT_BG)
 
-        self._nav_buttons = {}  # clave de página -> Label, para marcar la activa
+        self._nav_buttons = {}
         self._active_page = None
+        self._sidebar_visible = True
 
-        self._build_sidebar()
-        self._build_content_area()
+        self._build_top_bar()
+
+        # Usar grid en lugar de pack para evitar saltos bruscos en la animación
+        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_container.pack(fill="both", expand=True)
+        self.main_container.grid_columnconfigure(1, weight=1)
+        self.main_container.grid_rowconfigure(0, weight=1)
+
+        self._build_sidebar(self.main_container)
+        self._build_content_area(self.main_container)
         self._show_feed()
 
-    # ---------- estructura general ----------
+    def _build_top_bar(self):
+        top_bar = ctk.CTkFrame(self, fg_color=theme.CONTENT_BG, height=50, corner_radius=0)
+        top_bar.pack(fill="x")
+        
+        btn_menu = ctk.CTkButton(
+            top_bar, text="☰", width=40, height=40, fg_color="transparent",
+            text_color=theme.PAGE_FG, hover_color=theme.SIDEBAR_HOVER_BG,
+            font=ctk.CTkFont(size=22), command=self._toggle_sidebar
+        )
+        btn_menu.pack(side="left", padx=10, pady=5)
+        
+        ctk.CTkLabel(
+            top_bar, text="Administrador", 
+            font=ctk.CTkFont(family="Helvetica", size=18, weight="bold"),
+            text_color=theme.SIDEBAR_TEXT_ACTIVE
+        ).pack(side="left", padx=5)
 
-    def _build_sidebar(self):
-        sidebar = tk.Frame(self, bg=SIDEBAR_BG, width=210)
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
+    def _build_sidebar(self, parent):
+        self.sidebar = ctk.CTkFrame(parent, fg_color=theme.SIDEBAR_BG, width=240, corner_radius=0)
+        self.sidebar.grid_propagate(False)
+        self.sidebar.grid(row=0, column=0, sticky="ns")
 
-        tk.Label(
-            sidebar, text="Admin de Blog", font=("Segoe UI", 13, "bold"),
-            bg=SIDEBAR_BG, fg=SIDEBAR_TEXT_ACTIVE, pady=20,
-        ).pack(fill="x")
+        ctk.CTkFrame(self.sidebar, fg_color="transparent", height=20).pack(fill="x")
 
         nav_items = [
-            ("feed", "Feed principal", self._show_feed),
+            ("feed", "Inicio", self._show_feed),
             ("users", "Usuarios", self._show_users),
             ("taxonomy", "Categorías / Etiquetas", self._show_taxonomy),
         ]
+        
         for clave, texto, comando in nav_items:
-            self._nav_buttons[clave] = self._make_nav_button(sidebar, texto, comando, page_key=clave)
+            self._nav_buttons[clave] = self._make_nav_button(self.sidebar, texto, comando, page_key=clave)
 
-        tk.Frame(sidebar, bg=SIDEBAR_DIVIDER, height=1).pack(fill="x", pady=10)
+        ctk.CTkFrame(self.sidebar, fg_color=theme.SIDEBAR_DIVIDER, height=1).pack(fill="x", pady=15, padx=20)
 
-        tk.Label(
-            sidebar, text="ACCIONES", font=("Segoe UI", 8, "bold"),
-            bg=SIDEBAR_BG, fg=SIDEBAR_MUTED, anchor="w", padx=20,
-        ).pack(fill="x")
+        ctk.CTkLabel(
+            self.sidebar, text="ACCIONES", font=ctk.CTkFont(family="Helvetica", size=11, weight="bold"),
+            text_color=theme.SIDEBAR_MUTED, anchor="w"
+        ).pack(fill="x", padx=20, pady=(0, 10))
 
-        self._make_nav_button(
-            sidebar, "+ Publicar artículo",
-            lambda: abrir_form_publicar_articulo(self, on_saved=self._show_feed),
+        action_btn = ctk.CTkButton(
+            self.sidebar, text="+ Publicar artículo", fg_color=theme.SIDEBAR_SELECTED_TEXT,
+            text_color="#131314", hover_color="#8AB4F8", corner_radius=8, 
+            font=ctk.CTkFont(family="Helvetica", size=13, weight="bold"),
+            command=lambda: abrir_form_publicar_articulo(self, on_saved=self._show_feed)
         )
+        action_btn.pack(fill="x", padx=15, pady=5)
+
+    def _toggle_sidebar(self):
+        if self._sidebar_visible:
+            self.sidebar.grid_remove()
+            self._sidebar_visible = False
+        else:
+            self.sidebar.grid(row=0, column=0, sticky="ns")
+            self._sidebar_visible = True
 
     def _make_nav_button(self, parent, texto, comando, page_key=None):
-        """
-        Crea un renglón de navegación clicable usando tk.Label en vez de
-        tk.Button (ver nota de plataforma arriba). Si se pasa page_key,
-        el renglón se resalta cuando esa página está activa.
-        """
-        lbl = tk.Label(
-            parent, text=texto, bg=SIDEBAR_BG, fg=SIDEBAR_TEXT,
-            anchor="w", padx=20, pady=10, font=("Segoe UI", 10),
-            cursor="hand2",
+        btn = ctk.CTkButton(
+            parent, text=texto, anchor="w", fg_color="transparent",
+            text_color=theme.SIDEBAR_TEXT, hover_color=theme.SIDEBAR_HOVER_BG,
+            font=ctk.CTkFont(family="Helvetica", size=14), command=comando, corner_radius=8
         )
-        lbl.pack(fill="x")
-
-        def on_click(_event):
-            comando()
-
-        def on_enter(_event):
-            if page_key is None or page_key != self._active_page:
-                lbl.configure(bg=SIDEBAR_HOVER_BG, fg=SIDEBAR_TEXT_ACTIVE)
-
-        def on_leave(_event):
-            if page_key is None or page_key != self._active_page:
-                lbl.configure(bg=SIDEBAR_BG, fg=SIDEBAR_TEXT)
-
-        lbl.bind("<Button-1>", on_click)
-        lbl.bind("<Enter>", on_enter)
-        lbl.bind("<Leave>", on_leave)
-        return lbl
+        btn.pack(fill="x", padx=10, pady=2)
+        return btn
 
     def _set_active_nav(self, page_key):
         self._active_page = page_key
-        for clave, lbl in self._nav_buttons.items():
+        for clave, btn in self._nav_buttons.items():
             if clave == page_key:
-                lbl.configure(bg=SIDEBAR_SELECTED_BG, fg=SIDEBAR_TEXT_ACTIVE)
+                btn.configure(
+                    fg_color=theme.SIDEBAR_SELECTED_BG, hover_color=theme.SIDEBAR_SELECTED_BG,
+                    text_color=theme.SIDEBAR_SELECTED_TEXT, font=ctk.CTkFont(family="Helvetica", size=14, weight="bold")
+                )
             else:
-                lbl.configure(bg=SIDEBAR_BG, fg=SIDEBAR_TEXT)
+                btn.configure(
+                    fg_color="transparent", hover_color=theme.SIDEBAR_HOVER_BG,
+                    text_color=theme.SIDEBAR_TEXT, font=ctk.CTkFont(family="Helvetica", size=14, weight="normal")
+                )
 
-    def _build_content_area(self):
-        self.content = tk.Frame(self, bg=CONTENT_BG)
-        self.content.pack(side="right", fill="both", expand=True)
+    def _build_content_area(self, parent):
+        self.content = ctk.CTkFrame(parent, fg_color=theme.CONTENT_BG, corner_radius=0)
+        self.content.grid(row=0, column=1, sticky="nsew")
 
     def _clear_content(self):
         for widget in self.content.winfo_children():
             widget.destroy()
-
-    # ---------- navegación ----------
 
     def _show_feed(self):
         self._clear_content()
@@ -150,11 +164,9 @@ class BlogAdminApp(tk.Tk):
         self._set_active_nav(None)
         ArticleDetailView(self.content, article, on_back=self._show_feed).pack(fill="both", expand=True)
 
-
 def main():
     app = BlogAdminApp()
     app.mainloop()
-
 
 if __name__ == "__main__":
     main()
