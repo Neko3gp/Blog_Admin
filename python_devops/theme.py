@@ -10,6 +10,7 @@ CONTENT_FG = "#E3E3E3"
 # Superficie de "página"
 PAGE_BG = "#1E1F22"
 PAGE_FG = "#E3E3E3"
+CARD_BORDER = "#444746"
 
 # Paneles secundarios / Formularios
 PANEL_BG = "#1E1F22"

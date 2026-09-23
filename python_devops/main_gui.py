@@ -48,14 +48,14 @@ class BlogAdminApp(ctk.CTk):
         self._build_top_bar()
 
         # Usar grid en lugar de pack para evitar saltos bruscos en la animación
-        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_container = ctk.CTkFrame(self, fg_color=theme.CONTENT_BG)
         self.main_container.pack(fill="both", expand=True)
         self.main_container.grid_columnconfigure(1, weight=1)
         self.main_container.grid_rowconfigure(0, weight=1)
 
         self._build_sidebar(self.main_container)
         self._build_content_area(self.main_container)
-        self._show_feed()
+        self.after(100, self._show_feed)
 
     def _build_top_bar(self):
         top_bar = ctk.CTkFrame(self, fg_color=theme.CONTENT_BG, height=50, corner_radius=0)
@@ -77,7 +77,7 @@ class BlogAdminApp(ctk.CTk):
     def _build_sidebar(self, parent):
         self.sidebar = ctk.CTkFrame(parent, fg_color=theme.SIDEBAR_BG, width=240, corner_radius=0)
         self.sidebar.grid_propagate(False)
-        self.sidebar.grid(row=0, column=0, sticky="ns")
+        self.sidebar.grid(row=0, column=0, sticky="nsew")
 
         ctk.CTkFrame(self.sidebar, fg_color="transparent", height=20).pack(fill="x")
 
@@ -110,7 +110,7 @@ class BlogAdminApp(ctk.CTk):
             self.sidebar.grid_remove()
             self._sidebar_visible = False
         else:
-            self.sidebar.grid(row=0, column=0, sticky="ns")
+            self.sidebar.grid(row=0, column=0, sticky="nsew")
             self._sidebar_visible = True
 
     def _make_nav_button(self, parent, texto, comando, page_key=None):
@@ -166,6 +166,8 @@ class BlogAdminApp(ctk.CTk):
 
 def main():
     app = BlogAdminApp()
+    app.after(50, app.lift)
+    app.after(50, app.focus_force)
     app.mainloop()
 
 if __name__ == "__main__":
