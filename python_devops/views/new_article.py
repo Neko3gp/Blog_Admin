@@ -5,12 +5,18 @@ Actualizado con CustomTkinter: se reemplazan los Listbox antiguos por
 paneles con Checkboxes modernos y scroll automático.
 """
 
-import tkinter as tk
 from tkinter import messagebox
 import customtkinter as ctk
 
-from db_connection import fetch_options
+import oracledb
+
+from db_connection import (
+    fetch_options,
+    call_procedure,
+    call_procedure_returning_id,
+)
 import theme
+
 
 def abrir_form_publicar_articulo(parent, on_saved=None):
     ventana = ctk.CTkToplevel(parent, fg_color=theme.PANEL_BG)
@@ -27,14 +33,14 @@ def abrir_form_publicar_articulo(parent, on_saved=None):
 
     etiqueta("Título:")
     entry_titulo = ctk.CTkEntry(
-        ventana, fg_color=theme.ENTRY_BG, 
+        ventana, fg_color=theme.ENTRY_BG,
         border_color=theme.ENTRY_BORDER, text_color=theme.ENTRY_FG
     )
     entry_titulo.pack(padx=25, fill="x")
 
     etiqueta("Texto:")
     text_cuerpo = ctk.CTkTextbox(
-        ventana, height=100, fg_color=theme.ENTRY_BG, 
+        ventana, height=100, fg_color=theme.ENTRY_BG,
         border_color=theme.ENTRY_BORDER, border_width=1, text_color=theme.ENTRY_FG
     )
     text_cuerpo.pack(padx=25, fill="x")
@@ -48,8 +54,9 @@ def abrir_form_publicar_articulo(parent, on_saved=None):
         button_color=theme.ENTRY_BORDER, button_hover_color=theme.BTN_SECONDARY_HOVER
     )
     combo_usuario.pack(padx=25, fill="x")
-    
+
     usuarios = fetch_options("users", "id", "name")
+    usuarios_by_name = {nombre: uid for uid, nombre in usuarios}
     if usuarios:
         combo_usuario.configure(values=[nombre for _, nombre in usuarios])
         combo_usuario.set(usuarios[0][1])
@@ -63,13 +70,14 @@ def abrir_form_publicar_articulo(parent, on_saved=None):
         button_color=theme.ENTRY_BORDER, button_hover_color=theme.BTN_SECONDARY_HOVER
     )
     combo_etiquetas.pack(padx=25, fill="x")
-    
+
     tags_opciones = fetch_options("tags", "id", "name")
+    tags_by_name = {nombre: tid for tid, nombre in tags_opciones}
     if tags_opciones:
-        combo_etiquetas.configure(values=[nombre for _, nombre in tags_opciones])
-        combo_etiquetas.set(tags_opciones[0][1])
+        combo_etiquetas.configure(values=["(ninguna)"] + [nombre for _, nombre in tags_opciones])
+        combo_etiquetas.set("(ninguna)")
     else:
-        combo_etiquetas.set("Sin etiquetas")
+        combo_etiquetas.set("(ninguna)")
 
     etiqueta("Categorías:")
     combo_categorias = ctk.CTkComboBox(
@@ -80,24 +88,48 @@ def abrir_form_publicar_articulo(parent, on_saved=None):
         button_color=theme.ENTRY_BORDER, button_hover_color=theme.BTN_SECONDARY_HOVER
     )
     combo_categorias.pack(padx=25, fill="x")
-    
+
     categorias_opciones = fetch_options("categories", "id", "name")
+    cats_by_name = {nombre: cid for cid, nombre in categorias_opciones}
     if categorias_opciones:
-        combo_categorias.configure(values=[nombre for _, nombre in categorias_opciones])
-        combo_categorias.set(categorias_opciones[0][1])
+        combo_categorias.configure(values=["(ninguna)"] + [nombre for _, nombre in categorias_opciones])
+        combo_categorias.set("(ninguna)")
     else:
-        combo_categorias.set("Sin categorías")
+        combo_categorias.set("(ninguna)")
 
     def guardar():
         titulo = entry_titulo.get().strip()
-        texto = text_cuerpo.get("1.0", tk.END).strip()
+        texto = text_cuerpo.get("1.0", "end-1c").strip()
         usuario_nombre = combo_usuario.get()
 
         if not titulo or not texto or not usuario_nombre:
             messagebox.showwarning("Falta información", "Título, texto y usuario son obligatorios.")
             return
 
-        messagebox.showinfo("Pendiente", "pkg_articles.create_article aún no está disponible.")
+        user_id = usuarios_by_name.get(usuario_nombre)
+        if user_id is None:
+            messagebox.showerror("Error", "Usuario no válido.")
+            return
+
+        try:
+            article_id = call_procedure_returning_id(
+                "pkg_articles.create_article",
+                [titulo, texto, user_id],
+            )
+            tag_nombre = combo_etiquetas.get()
+            if tag_nombre and tag_nombre != "(ninguna)" and tag_nombre in tags_by_name:
+                call_procedure("pkg_articles.assign_tag", [article_id, tags_by_name[tag_nombre]])
+            cat_nombre = combo_categorias.get()
+            if cat_nombre and cat_nombre != "(ninguna)" and cat_nombre in cats_by_name:
+                call_procedure(
+                    "pkg_articles.assign_category",
+                    [article_id, cats_by_name[cat_nombre]],
+                )
+        except oracledb.Error as e:
+            messagebox.showerror("Error", str(e).split("\n")[0])
+            return
+
+        messagebox.showinfo("Listo", f"Artículo publicado (id={article_id}).")
         if on_saved:
             on_saved()
         ventana.destroy()

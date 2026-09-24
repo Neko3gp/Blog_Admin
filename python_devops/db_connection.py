@@ -81,6 +81,20 @@ def call_procedure(package_procedure, params=None):
             cursor.callproc(package_procedure, params)
 
 
+def call_procedure_returning_id(package_procedure, params, out_index=-1):
+    """Invoca un procedimiento con parámetro OUT NUMBER y regresa el ID."""
+    params = list(params)
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            out_id = cursor.var(oracledb.DB_TYPE_NUMBER)
+            if out_index < 0:
+                out_index = len(params)
+            call_args = params[:out_index] + [out_id] + params[out_index:]
+            cursor.callproc(package_procedure, call_args)
+            value = out_id.getvalue()
+            return int(value) if value is not None else None
+
+
 def call_procedure_with_cursor(package_procedure, params=None):
     """
     Helper genérico para invocar un procedimiento que regresa un SYS_REFCURSOR
@@ -98,6 +112,40 @@ def call_procedure_with_cursor(package_procedure, params=None):
             cursor.callproc(package_procedure, params + [out_cursor])
             result_cursor = out_cursor.getvalue()
             return result_cursor.fetchall()
+
+
+def fetch_article_text(article_id):
+    """Lee el texto (CLOB) de un artículo por id."""
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT text FROM articles WHERE id = :id", {"id": article_id})
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+
+def fetch_article_taxonomy(article_id):
+    """Regresa (tags, categories) como listas de nombres."""
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT t.name FROM tags t
+                JOIN article_tags at ON at.tag_id = t.id
+                WHERE at.article_id = :id ORDER BY t.name
+                """,
+                {"id": article_id},
+            )
+            tags = [r[0] for r in cursor.fetchall()]
+            cursor.execute(
+                """
+                SELECT c.name FROM categories c
+                JOIN article_categories ac ON ac.category_id = c.id
+                WHERE ac.article_id = :id ORDER BY c.name
+                """,
+                {"id": article_id},
+            )
+            categories = [r[0] for r in cursor.fetchall()]
+            return tags, categories
 
 
 if __name__ == "__main__":

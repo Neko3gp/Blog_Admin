@@ -13,8 +13,9 @@ del fondo de página, sin importar qué tan oscuro sea PAGE_BG.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import oracledb
 
-from db_connection import fetch_options
+from db_connection import fetch_options, call_procedure, fetch_article_text
 from utils import safe_get_all, users_lookup
 from widgets.scrollframe import ScrollableFrame
 import theme
@@ -23,13 +24,17 @@ import theme
 class ArticleDetailView(tk.Frame):
     def __init__(self, parent, article, on_back):
         """
-        article: dict con al menos {id, title, author, date}. El texto
-        completo no viaja todavía en get_all_articles, así que se muestra
-        un placeholder si no está presente.
+        article: dict con al menos {id, title, author, date}.
         """
         super().__init__(parent, bg=theme.PAGE_BG)
-        self.article = article
+        self.article = dict(article)
         self.on_back = on_back
+
+        if not self.article.get("text") and self.article.get("id") is not None:
+            try:
+                self.article["text"] = fetch_article_text(self.article["id"])
+            except oracledb.Error:
+                self.article["text"] = None
 
         self._build_header()
         self._build_body_and_comments()
@@ -56,11 +61,9 @@ class ArticleDetailView(tk.Frame):
         texto = self.article.get("text")
         tk.Label(
             content,
-            text=texto or (
-                "(el texto completo del artículo aún no viaja en "
-                "pkg_articles.get_all_articles — pendiente de extender el contrato)"
-            ),
-            font=("Segoe UI", 10), fg=theme.PAGE_FG if texto else theme.TEXT_PLACEHOLDER,
+            text=texto or "(sin texto)",
+            font=("Segoe UI", 10),
+            fg=theme.PAGE_FG if texto else theme.TEXT_PLACEHOLDER,
             bg=theme.PAGE_BG, anchor="w", justify="left", wraplength=600,
         ).pack(fill="x", pady=(0, 16))
 
@@ -124,6 +127,7 @@ class ArticleDetailView(tk.Frame):
         tk.Label(parent, text="Usuario:", bg=theme.PAGE_BG, fg=theme.PAGE_FG, anchor="w").pack(fill="x", pady=(6, 0))
         combo_usuario = ttk.Combobox(parent, state="readonly", width=30)
         opciones_usuario = fetch_options("users", "id", "name")
+        usuarios_by_name = {nombre: uid for uid, nombre in opciones_usuario}
         combo_usuario["values"] = [nombre for _, nombre in opciones_usuario]
         if opciones_usuario:
             combo_usuario.current(0)
@@ -140,11 +144,19 @@ class ArticleDetailView(tk.Frame):
             if not contenido or not combo_usuario.get():
                 messagebox.showwarning("Falta información", "Usuario y comentario son obligatorios.")
                 return
-            # TODO: cuando pkg_comments.add_comment tenga lógica real, descomentar:
-            # user_id = dict((n, i) for i, n in opciones_usuario)[combo_usuario.get()]
-            # call_procedure("pkg_comments.add_comment", [contenido, user_id, self.article.get("id")])
-            # texto_comentario.delete("1.0", tk.END)
-            # self._render_comments()
-            messagebox.showinfo("Pendiente", "pkg_comments.add_comment aún no está disponible.")
+            user_id = usuarios_by_name.get(combo_usuario.get())
+            if user_id is None:
+                messagebox.showerror("Error", "Usuario no válido.")
+                return
+            try:
+                call_procedure(
+                    "pkg_comments.add_comment",
+                    [contenido, user_id, self.article.get("id")],
+                )
+            except oracledb.Error as e:
+                messagebox.showerror("Error", str(e).split("\n")[0])
+                return
+            texto_comentario.delete("1.0", tk.END)
+            self._render_comments()
 
         ttk.Button(parent, text="Comentar", command=enviar).pack(anchor="e")

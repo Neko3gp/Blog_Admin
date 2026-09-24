@@ -9,6 +9,8 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 from utils import safe_get_all
+from db_connection import call_procedure
+import oracledb
 import theme
 
 
@@ -80,10 +82,15 @@ class UsersView(ctk.CTkFrame):
             if not nombre or not email:
                 messagebox.showwarning("Falta información", "Nombre y email son obligatorios.")
                 return
-                
-            messagebox.showinfo("Pendiente", "pkg_users.insert_user aún no está disponible.")
+            try:
+                call_procedure("pkg_users.insert_user", [nombre, email])
+            except oracledb.Error as e:
+                messagebox.showerror("Error", str(e).split("\n")[0])
+                return
             entry_nombre.delete(0, tk.END)
             entry_email.delete(0, tk.END)
+            self.reload()
+            messagebox.showinfo("Listo", "Usuario creado.")
 
         ctk.CTkButton(
             parent, text="Guardar", command=guardar,

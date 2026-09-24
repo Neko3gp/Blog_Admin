@@ -28,7 +28,7 @@ import theme
 from views.feed import FeedView
 from views.article_detail import ArticleDetailView
 from views.users import UsersView
-from views.taxonomy import TaxonomyView
+from views.taxonomy import CategoriesView, TagsView
 from views.new_article import abrir_form_publicar_articulo
 
 ctk.set_appearance_mode("dark")
@@ -84,7 +84,8 @@ class BlogAdminApp(ctk.CTk):
         nav_items = [
             ("feed", "Inicio", self._show_feed),
             ("users", "Usuarios", self._show_users),
-            ("taxonomy", "Categorías / Etiquetas", self._show_taxonomy),
+            ("categories", "Categorías", self._show_categories),
+            ("tags", "Etiquetas", self._show_tags),
         ]
         
         for clave, texto, comando in nav_items:
@@ -154,10 +155,15 @@ class BlogAdminApp(ctk.CTk):
         self._set_active_nav("users")
         UsersView(self.content).pack(fill="both", expand=True)
 
-    def _show_taxonomy(self):
+    def _show_categories(self):
         self._clear_content()
-        self._set_active_nav("taxonomy")
-        TaxonomyView(self.content).pack(fill="both", expand=True)
+        self._set_active_nav("categories")
+        CategoriesView(self.content).pack(fill="both", expand=True)
+
+    def _show_tags(self):
+        self._clear_content()
+        self._set_active_nav("tags")
+        TagsView(self.content).pack(fill="both", expand=True)
 
     def _show_article_detail(self, article):
         self._clear_content()

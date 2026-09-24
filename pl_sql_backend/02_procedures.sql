@@ -1,15 +1,3 @@
--- =====================================================
--- 02_procedures.sql
--- Administrador de Blog — Bases de Datos Avanzadas
--- Integrante 2 (Samuel): Backend PL/SQL
---
--- ESTE ES UN ESQUELETO. Las firmas (nombres y parámetros) ya
--- siguen el Contrato de Nombres del documento del proyecto —
--- NO cambiarlas, porque Python ya las va a invocar con estos
--- nombres exactos. Rellenar la lógica donde dice TODO.
--- =====================================================
-
-
 -- ---------- PKG_USERS ----------
 
 CREATE OR REPLACE PACKAGE pkg_users AS
@@ -31,18 +19,25 @@ CREATE OR REPLACE PACKAGE BODY pkg_users AS
         p_email IN VARCHAR2
     ) IS
     BEGIN
-        -- TODO Samuel: INSERT INTO users(name, email) VALUES (p_name, p_email);
-        -- TODO Samuel: capturar DUP_VAL_ON_INDEX (email duplicado, es UNIQUE)
-        --              y relanzar con RAISE_APPLICATION_ERROR(-20001, 'Email ya registrado');
-        NULL;
+        INSERT INTO users(name, email)
+        VALUES (p_name, p_email);
+        COMMIT;
+    EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+            RAISE_APPLICATION_ERROR(-20001, 'Email ya registrado');
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
     END insert_user;
 
     PROCEDURE get_all_users(
         p_cursor OUT SYS_REFCURSOR
     ) IS
     BEGIN
-        -- TODO Samuel: OPEN p_cursor FOR SELECT id, name, email FROM users ORDER BY id;
-        NULL;
+        OPEN p_cursor FOR
+            SELECT id, name, email
+            FROM users
+            ORDER BY id;
     END get_all_users;
 
 END pkg_users;
@@ -84,12 +79,18 @@ CREATE OR REPLACE PACKAGE BODY pkg_articles AS
         p_article_id OUT NUMBER
     ) IS
     BEGIN
-        -- TODO Samuel: INSERT INTO articles(title, text, user_id)
-        --              VALUES (p_title, p_text, p_user_id)
-        --              RETURNING id INTO p_article_id;
-        -- TODO Samuel: capturar violación de FK (user_id inexistente) con
-        --              RAISE_APPLICATION_ERROR
-        NULL;
+        INSERT INTO articles(title, text, user_id)
+        VALUES (p_title, p_text, p_user_id)
+        RETURNING id INTO p_article_id;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            IF SQLCODE = -2291 THEN
+                RAISE_APPLICATION_ERROR(-20002, 'Usuario no existe');
+            ELSE
+                RAISE;
+            END IF;
     END create_article;
 
     PROCEDURE assign_tag(
@@ -97,9 +98,19 @@ CREATE OR REPLACE PACKAGE BODY pkg_articles AS
         p_tag_id     IN NUMBER
     ) IS
     BEGIN
-        -- TODO Samuel: INSERT INTO article_tags(article_id, tag_id)
-        --              VALUES (p_article_id, p_tag_id);
-        NULL;
+        INSERT INTO article_tags(article_id, tag_id)
+        VALUES (p_article_id, p_tag_id);
+        COMMIT;
+    EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+            RAISE_APPLICATION_ERROR(-20003, 'Tag ya asignado a este artículo');
+        WHEN OTHERS THEN
+            ROLLBACK;
+            IF SQLCODE = -2291 THEN
+                RAISE_APPLICATION_ERROR(-20004, 'Artículo o tag no existe');
+            ELSE
+                RAISE;
+            END IF;
     END assign_tag;
 
     PROCEDURE assign_category(
@@ -107,17 +118,29 @@ CREATE OR REPLACE PACKAGE BODY pkg_articles AS
         p_category_id IN NUMBER
     ) IS
     BEGIN
-        -- TODO Samuel: INSERT INTO article_categories(article_id, category_id)
-        --              VALUES (p_article_id, p_category_id);
-        NULL;
+        INSERT INTO article_categories(article_id, category_id)
+        VALUES (p_article_id, p_category_id);
+        COMMIT;
+    EXCEPTION
+        WHEN DUP_VAL_ON_INDEX THEN
+            RAISE_APPLICATION_ERROR(-20005, 'Categoría ya asignada a este artículo');
+        WHEN OTHERS THEN
+            ROLLBACK;
+            IF SQLCODE = -2291 THEN
+                RAISE_APPLICATION_ERROR(-20006, 'Artículo o categoría no existe');
+            ELSE
+                RAISE;
+            END IF;
     END assign_category;
 
     PROCEDURE get_all_articles(
         p_cursor OUT SYS_REFCURSOR
     ) IS
     BEGIN
-        -- TODO Samuel: OPEN p_cursor FOR SELECT id, title, date, user_id FROM articles ORDER BY id;
-        NULL;
+        OPEN p_cursor FOR
+            SELECT id, title, pub_date, user_id
+            FROM articles
+            ORDER BY id;
     END get_all_articles;
 
 END pkg_articles;
@@ -148,9 +171,17 @@ CREATE OR REPLACE PACKAGE BODY pkg_comments AS
         p_article_id IN NUMBER
     ) IS
     BEGIN
-        -- TODO Samuel: INSERT INTO comments(content, user_id, article_id)
-        --              VALUES (p_content, p_user_id, p_article_id);
-        NULL;
+        INSERT INTO comments(content, user_id, article_id)
+        VALUES (p_content, p_user_id, p_article_id);
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            IF SQLCODE = -2291 THEN
+                RAISE_APPLICATION_ERROR(-20007, 'Usuario o artículo no existe');
+            ELSE
+                RAISE;
+            END IF;
     END add_comment;
 
     PROCEDURE get_by_article(
@@ -158,10 +189,11 @@ CREATE OR REPLACE PACKAGE BODY pkg_comments AS
         p_cursor     OUT SYS_REFCURSOR
     ) IS
     BEGIN
-        -- TODO Samuel: OPEN p_cursor FOR
-        --   SELECT id, content, creation_date, user_id
-        --   FROM comments WHERE article_id = p_article_id ORDER BY creation_date;
-        NULL;
+        OPEN p_cursor FOR
+            SELECT id, content, creation_date, user_id
+            FROM comments
+            WHERE article_id = p_article_id
+            ORDER BY creation_date;
     END get_by_article;
 
 END pkg_comments;
@@ -189,16 +221,23 @@ CREATE OR REPLACE PACKAGE BODY pkg_categories AS
         p_url  IN VARCHAR2
     ) IS
     BEGIN
-        -- TODO Samuel: INSERT INTO categories(name, url) VALUES (p_name, p_url);
-        NULL;
+        INSERT INTO categories(name, url)
+        VALUES (p_name, p_url);
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
     END insert_category;
 
     PROCEDURE get_all(
         p_cursor OUT SYS_REFCURSOR
     ) IS
     BEGIN
-        -- TODO Samuel: OPEN p_cursor FOR SELECT id, name, url FROM categories ORDER BY id;
-        NULL;
+        OPEN p_cursor FOR
+            SELECT id, name, url
+            FROM categories
+            ORDER BY id;
     END get_all;
 
 END pkg_categories;
@@ -226,16 +265,23 @@ CREATE OR REPLACE PACKAGE BODY pkg_tags AS
         p_url  IN VARCHAR2
     ) IS
     BEGIN
-        -- TODO Samuel: INSERT INTO tags(name, url) VALUES (p_name, p_url);
-        NULL;
+        INSERT INTO tags(name, url)
+        VALUES (p_name, p_url);
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
     END insert_tag;
 
     PROCEDURE get_all(
         p_cursor OUT SYS_REFCURSOR
     ) IS
     BEGIN
-        -- TODO Samuel: OPEN p_cursor FOR SELECT id, name, url FROM tags ORDER BY id;
-        NULL;
+        OPEN p_cursor FOR
+            SELECT id, name, url
+            FROM tags
+            ORDER BY id;
     END get_all;
 
 END pkg_tags;
