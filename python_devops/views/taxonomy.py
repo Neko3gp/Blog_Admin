@@ -1,11 +1,8 @@
-"""
-views/taxonomy.py
-Vistas separadas de Categorías y Etiquetas.
-"""
+"""Vistas de administración de categorías y etiquetas.
 
-"""
-views/taxonomy.py
-Vistas separadas de Categorías y Etiquetas con CRUD completo y Auto-Slug.
+Ambos tipos de taxonomía comparten el mismo panel visual. El nombre se
+convierte en un slug URL y las operaciones de alta, edición y eliminación se
+delegan a los procedimientos definidos para cada entidad.
 """
 
 import tkinter as tk
@@ -21,13 +18,14 @@ import theme
 
 
 def generar_slug(texto):
-    """Convierte un texto normal en formato URL amigable (ej. 'Bases de Datos' -> 'bases-de-datos')"""
+    """Convierte un nombre en un slug URL estable y sin acentos."""
     texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
     texto = texto.lower().strip()
     return re.sub(r'[-\s]+', '-', re.sub(r'[^a-z0-9\s-]', '', texto))
 
 class _TaxonomyPanel(ctk.CTkFrame):
-    # Agregamos proc_update y proc_delete a la firma para mantener tu diseño modular
+    """Panel reutilizable para listar y administrar una taxonomía."""
+
     def __init__(self, parent, titulo, proc_get_all, proc_insert, proc_update, proc_delete):
         super().__init__(parent, fg_color="transparent")
         self.proc_get_all = proc_get_all
@@ -73,8 +71,6 @@ class _TaxonomyPanel(ctk.CTkFrame):
         )
         self.entry_nombre.pack(fill="x", padx=16, pady=(0, 10))
 
-        # Se eliminó el campo entry_url visualmente para mejorar UX
-
         ctk.CTkButton(
             form_col, text="Guardar", command=self.guardar,
             fg_color=theme.BTN_SECONDARY_BG, hover_color=theme.BTN_SECONDARY_HOVER,
@@ -85,12 +81,12 @@ class _TaxonomyPanel(ctk.CTkFrame):
         self.reload()
 
     def guardar(self):
+        """Valida el nombre, genera el slug y crea el registro."""
         nombre = self.entry_nombre.get().strip()
         if not nombre:
             messagebox.showwarning("Falta información", "El nombre es obligatorio.")
             return
             
-        # Generamos la URL automáticamente en el fondo
         url = generar_slug(nombre)
         
         try:
@@ -104,10 +100,11 @@ class _TaxonomyPanel(ctk.CTkFrame):
         messagebox.showinfo("Listo", f"{self.titulo} creada exitosamente.")
 
     def reload(self):
+        """Actualiza la lista y conserva un estado vacío comprensible."""
         for widget in self.scroll.winfo_children():
             widget.destroy()
             
-        self.update_idletasks() # Evita parpadeos al recargar la lista
+        self.update_idletasks()
 
         rows = safe_get_all(self.proc_get_all)
 
@@ -149,19 +146,18 @@ class _TaxonomyPanel(ctk.CTkFrame):
             else:
                 ctk.CTkFrame(info_frame, fg_color="transparent", height=10).pack()
 
-            # Botón Eliminar
             ctk.CTkButton(
                 item, text="✖", width=30, fg_color="#dc3545", hover_color="#c82333",
                 command=lambda id=_id, n=nombre: self.eliminar(id, n)
             ).pack(side="right", padx=(2, 15))
             
-            # Botón Editar
             ctk.CTkButton(
                 item, text="✎", width=30, fg_color="#ffc107", hover_color="#e0a800", text_color="black",
                 command=lambda id=_id, n=nombre: self.editar(id, n)
             ).pack(side="right", padx=2)
 
     def editar(self, item_id, current_name):
+        """Solicita un nuevo nombre y actualiza el registro seleccionado."""
         dialog = ctk.CTkInputDialog(text=f"Nuevo nombre para '{current_name}':", title="Editar")
         nuevo_nombre = dialog.get_input()
         
@@ -174,6 +170,7 @@ class _TaxonomyPanel(ctk.CTkFrame):
                 messagebox.showerror("Error", f"No se pudo actualizar: {e}")
 
     def eliminar(self, item_id, item_name):
+        """Confirma y elimina el registro seleccionado."""
         confirm = messagebox.askyesno("Confirmar", f"¿Seguro que deseas eliminar '{item_name}'?")
         if confirm:
             try:
@@ -183,6 +180,7 @@ class _TaxonomyPanel(ctk.CTkFrame):
                 messagebox.showerror("Error", f"No se pudo eliminar. Probablemente esté en uso.\nDetalles: {e}")
 
 class CategoriesView(ctk.CTkFrame):
+    """Vista de administración de categorías."""
     def __init__(self, parent):
         super().__init__(parent, fg_color=theme.PAGE_BG)
 
@@ -192,7 +190,6 @@ class CategoriesView(ctk.CTkFrame):
             text_color=theme.PAGE_FG
         ).pack(anchor="w", padx=20, pady=(20, 10))
 
-        # Integramos las firmas de Update y Delete asumiendo la nomenclatura de tu equipo
         panel = _TaxonomyPanel(
             self, "Categoría",
             "pkg_categories.get_all",
@@ -204,6 +201,7 @@ class CategoriesView(ctk.CTkFrame):
 
 
 class TagsView(ctk.CTkFrame):
+    """Vista de administración de etiquetas."""
     def __init__(self, parent):
         super().__init__(parent, fg_color=theme.PAGE_BG)
 
@@ -213,7 +211,6 @@ class TagsView(ctk.CTkFrame):
             text_color=theme.PAGE_FG
         ).pack(anchor="w", padx=20, pady=(20, 10))
 
-        # Integramos las firmas de Update y Delete
         panel = _TaxonomyPanel(
             self, "Etiqueta",
             "pkg_tags.get_all",

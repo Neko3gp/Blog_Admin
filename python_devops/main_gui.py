@@ -1,25 +1,9 @@
-"""
-main_gui.py
-Punto de entrada de la GUI del Administrador de Blog.
+"""Punto de entrada y navegación principal de la aplicación de escritorio.
 
-Rediseño de la ventana de 8 botones apilados hacia una navegación tipo
-feed/blog: barra lateral + área de contenido que cambia entre Feed,
-Usuarios, Categorías/Etiquetas y el formulario de Publicar Artículo
-(ver directivas_rediseño_gui.md).
-
-No cambia el modelo de datos, ni el Contrato de Nombres de PL/SQL, ni el
-contrato público de db_connection.py — solo la capa visual.
-
-Nota de plataforma: en macOS, tk.Button ignora bg/fg porque usa el widget
-nativo de Aqua. Por eso los botones de navegación del sidebar están hechos
-con tk.Label + bindings de clic/hover (_make_nav_button) en vez de
-tk.Button — así los colores sí se respetan en Mac, Windows y Linux por
-igual.
-"""
-
-"""
-Punto de entrada de la GUI del Administrador de Blog.
-Rediseño implementando una barra lateral flotante e independiente del área de contenido.
+La ventana coordina la barra lateral, el área de contenido y las vistas de
+feed, detalle, usuarios, categorías y etiquetas. La navegación solo cambia
+la capa visual; el modelo de datos y los contratos PL/SQL permanecen en sus
+módulos especializados.
 """
 
 import customtkinter as ctk
@@ -34,6 +18,8 @@ from views.new_article import abrir_form_publicar_articulo
 ctk.set_appearance_mode("dark")
 
 class BlogAdminApp(ctk.CTk):
+    """Ventana raíz que coordina la navegación del administrador."""
+
     def __init__(self):
         super().__init__()
         self.title("Administrador de Blog")
@@ -47,7 +33,7 @@ class BlogAdminApp(ctk.CTk):
 
         self._build_top_bar()
 
-        # Usar grid en lugar de pack para evitar saltos bruscos en la animación
+        # Grid permite ocultar la barra lateral sin afectar el área principal.
         self.main_container = ctk.CTkFrame(self, fg_color=theme.CONTENT_BG)
         self.main_container.pack(fill="both", expand=True)
         self.main_container.grid_columnconfigure(1, weight=1)
@@ -58,6 +44,7 @@ class BlogAdminApp(ctk.CTk):
         self.after(100, self._show_feed)
 
     def _build_top_bar(self):
+        """Construye la barra superior y el control de menú."""
         top_bar = ctk.CTkFrame(self, fg_color=theme.CONTENT_BG, height=50, corner_radius=0)
         top_bar.pack(fill="x")
         
@@ -75,6 +62,7 @@ class BlogAdminApp(ctk.CTk):
         ).pack(side="left", padx=5)
 
     def _build_sidebar(self, parent):
+        """Construye la navegación y la acción de publicación."""
         self.sidebar = ctk.CTkFrame(parent, fg_color=theme.SIDEBAR_BG, width=240, corner_radius=0)
         self.sidebar.grid_propagate(False)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
@@ -107,6 +95,7 @@ class BlogAdminApp(ctk.CTk):
         action_btn.pack(fill="x", padx=15, pady=5)
 
     def _toggle_sidebar(self):
+        """Alterna la visibilidad de la barra lateral."""
         if self._sidebar_visible:
             self.sidebar.grid_remove()
             self._sidebar_visible = False
@@ -115,6 +104,7 @@ class BlogAdminApp(ctk.CTk):
             self._sidebar_visible = True
 
     def _make_nav_button(self, parent, texto, comando, page_key=None):
+        """Crea un botón de navegación asociado a una vista."""
         btn = ctk.CTkButton(
             parent, text=texto, anchor="w", fg_color="transparent",
             text_color=theme.SIDEBAR_TEXT, hover_color=theme.SIDEBAR_HOVER_BG,            font=ctk.CTkFont(family="Helvetica", size=14), command=comando, corner_radius=8
@@ -123,6 +113,7 @@ class BlogAdminApp(ctk.CTk):
         return btn
 
     def _set_active_nav(self, page_key):
+        """Actualiza el estilo de la opción de navegación activa."""
         self._active_page = page_key
         for clave, btn in self._nav_buttons.items():
             if clave == page_key:
@@ -137,39 +128,47 @@ class BlogAdminApp(ctk.CTk):
                 )
 
     def _build_content_area(self, parent):
+        """Crea el contenedor donde se monta la vista seleccionada."""
         self.content = ctk.CTkFrame(parent, fg_color=theme.CONTENT_BG, corner_radius=0)
         self.content.grid(row=0, column=1, sticky="nsew")
 
     def _clear_content(self):
+        """Destruye la vista actualmente montada."""
         for widget in self.content.winfo_children():
             widget.destroy()
 
     def _show_feed(self):
+        """Muestra el feed de artículos."""
         self._clear_content()
         self._set_active_nav("feed")
         FeedView(self.content, on_open_article=self._show_article_detail).pack(fill="both", expand=True)
 
     def _show_users(self):
+        """Muestra la administración de usuarios."""
         self._clear_content()
         self._set_active_nav("users")
         UsersView(self.content).pack(fill="both", expand=True)
 
     def _show_categories(self):
+        """Muestra la administración de categorías."""
         self._clear_content()
         self._set_active_nav("categories")
         CategoriesView(self.content).pack(fill="both", expand=True)
 
     def _show_tags(self):
+        """Muestra la administración de etiquetas."""
         self._clear_content()
         self._set_active_nav("tags")
         TagsView(self.content).pack(fill="both", expand=True)
 
     def _show_article_detail(self, article):
+        """Muestra el detalle del artículo seleccionado."""
         self._clear_content()
         self._set_active_nav(None)
         ArticleDetailView(self.content, article, on_back=self._show_feed).pack(fill="both", expand=True)
 
 def main():
+    """Crea la ventana raíz e inicia el bucle de eventos de Tkinter."""
     app = BlogAdminApp()
     app.after(50, app.lift)
     app.after(50, app.focus_force)

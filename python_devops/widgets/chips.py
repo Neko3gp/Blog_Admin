@@ -1,9 +1,4 @@
-"""
-widgets/chips.py
-Chip visual (etiqueta con fondo de color) para representar tags y
-categorías dentro de una tarjeta de artículo, ya que tkinter no trae un
-componente de chip nativo.
-"""
+"""Construcción de etiquetas visuales para categorías y tags."""
 
 import tkinter as tk
 
@@ -12,10 +7,7 @@ CATEGORY_COLORS = {"bg": "#fbe7c6", "fg": "#a3660a"}
 
 
 def make_chip(parent, text, kind="tag"):
-    """
-    Crea un Label con apariencia de 'chip'. kind es 'tag' o 'category'
-    para variar el color y distinguirlos a simple vista en las tarjetas.
-    """
+    """Crea un ``Label`` con color diferenciado según el tipo de taxonomía."""
     colors = TAG_COLORS if kind == "tag" else CATEGORY_COLORS
     return tk.Label(
         parent,

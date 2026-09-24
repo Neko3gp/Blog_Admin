@@ -1,8 +1,4 @@
-"""
-views/feed.py
-Vista principal tipo feed: artículos como tarjetas (no un Listbox plano),
-con ordenamiento por fecha y filtro por categoría/tag.
-"""
+"""Vista principal del blog con ordenación, filtros y tarjetas de artículos."""
 
 import customtkinter as ctk
 
@@ -12,6 +8,8 @@ from utils import safe_get_all, users_lookup
 from widgets.cards import ArticleCard
 
 class FeedView(ctk.CTkFrame):
+    """Carga artículos, enriquece su taxonomía y los presenta en un feed."""
+
     def __init__(self, parent, on_open_article):
         super().__init__(parent, fg_color=theme.CONTENT_BG)
         self.on_open_article = on_open_article
@@ -22,6 +20,7 @@ class FeedView(ctk.CTkFrame):
         self.reload()
 
     def _build_toolbar(self):
+        """Construye los controles de ordenación y filtrado."""
         toolbar = ctk.CTkFrame(self, fg_color="transparent")
         toolbar.pack(fill="x", padx=16, pady=(14, 8))
 
@@ -68,9 +67,11 @@ class FeedView(ctk.CTkFrame):
         self._cargar_filtros()
 
     def _on_filter_change(self, value):
+        """Vuelve a pintar el feed cuando cambia un filtro."""
         self._render()
 
     def _cargar_filtros(self):
+        """Carga las opciones disponibles de categorías y etiquetas."""
         try:
             categorias = fetch_options("categories", "id", "name")
         except Exception:
@@ -86,6 +87,7 @@ class FeedView(ctk.CTkFrame):
         self.combo_tag.set("Todos")
 
     def _build_feed_area(self):
+        """Crea el contenedor desplazable de las tarjetas."""
         self.scroll_area = ctk.CTkScrollableFrame(
             self, fg_color="transparent", 
             scrollbar_button_color=theme.SCROLLBAR_FG,
@@ -94,6 +96,7 @@ class FeedView(ctk.CTkFrame):
         self.scroll_area.pack(fill="both", expand=True, padx=16, pady=(0, 16))
 
     def reload(self):
+        """Obtiene artículos, autores y taxonomía antes de renderizar."""
         author_by_id = users_lookup()
         rows = safe_get_all("pkg_articles.get_all_articles")
         if rows is None:
@@ -113,12 +116,11 @@ class FeedView(ctk.CTkFrame):
         self._render()
 
     def _render(self):
-        # 1. Limpiamos los widgets actuales
+        """Aplica los filtros activos y actualiza las tarjetas visibles."""
         for widget in self.scroll_area.winfo_children():
             widget.destroy()
 
-        # 2. EVITAR PARPADEO: Forzamos a la interfaz gráfica a procesar 
-        # la limpieza antes de empezar a pintar los nuevos elementos.
+        # Procesar la limpieza antes de crear widgets evita repintados visibles.
         self.update_idletasks()
 
         if self._articles is None:
@@ -147,6 +149,7 @@ class FeedView(ctk.CTkFrame):
             )
 
     def _render_placeholder(self, mensaje):
+        """Muestra un mensaje cuando no hay datos que presentar."""
         ctk.CTkLabel(
             self.scroll_area, text=mensaje, 
             font=ctk.CTkFont(family="Segoe UI", size=13, slant="italic"),

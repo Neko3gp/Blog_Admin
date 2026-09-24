@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Instala Python 3.12+ con Tcl/Tk 8.6 (necesario para CustomTkinter en macOS)
-# y recrea el venv de python_devops.
+# Instala CPython 3.12 con Tcl/Tk compatible y recrea el entorno virtual.
+# Está dirigido a macOS cuando el Python del sistema no incluye Tk moderno.
 set -euo pipefail
 
 cd "$(dirname "$0")"

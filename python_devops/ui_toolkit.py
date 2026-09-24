@@ -1,11 +1,8 @@
-"""
-ui_toolkit.py
-CustomTkinter necesita Tcl/Tk >= 8.6. En macOS, el Python de
-Command Line Tools trae Tk 8.5.9 y la GUI abre como una ventana negra.
+"""Capa de compatibilidad para entornos sin Tcl/Tk moderno.
 
-Si Tk es antiguo, este módulo expone un 'ctk' de compatibilidad sobre
-tkinter clásico (mismos nombres de clase / kwargs frecuentes) para que
-las vistas sigan funcionando sin reescribir todo.
+Cuando Tk es 8.6 o superior se exporta CustomTkinter directamente. En
+versiones antiguas se ofrecen adaptadores con nombres compatibles para que la
+aplicación pueda conservar su estructura visual básica.
 """
 
 from __future__ import annotations
@@ -15,6 +12,7 @@ from tkinter import ttk
 
 
 def _tcl_ok() -> bool:
+    """Indica si la versión instalada de Tcl/Tk es compatible."""
     try:
         parts = tk.Tcl().eval("info patchlevel").split(".")
         major, minor = int(parts[0]), int(parts[1])

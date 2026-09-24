@@ -1,20 +1,15 @@
-"""
-db_connection.py
-Módulo centralizado de conexión a Oracle para el proyecto Administrador de Blog.
+"""Servicios de acceso a Oracle para la aplicación Administrador de Blog.
 
-Uso:
-    from db_connection import get_connection
-
-    with get_connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1 FROM DUAL")
-            print(cursor.fetchone())
+Este módulo concentra la configuración de conexión, la conversión de valores
+CLOB y los adaptadores utilizados por la interfaz para ejecutar procedimientos
+PL/SQL y consultas auxiliares. Las funciones que abren conexiones las cierran
+mediante gestores de contexto para evitar recursos abiertos.
 """
 
 import oracledb
 
-# Credenciales estándar del equipo (ver README / docker-compose.yml)
-# IMPORTANTE: este valor debe coincidir exactamente con docker-compose.yml y el README.
+# Estos valores deben coincidir con docker-compose.yml. Son credenciales de
+# desarrollo local y no deben reutilizarse en un entorno de producción.
 DB_USER = "blog_admin"
 DB_PASSWORD = "admin123"
 DB_DSN = "localhost:1521/FREEPDB2"
@@ -50,15 +45,16 @@ def get_connection():
 
 
 def fetch_options(table, id_column, label_column, order_by=None):
-    """
-    Helper TEMPORAL para poblar dropdowns (ttk.Combobox) con pares (id, etiqueta),
-    ej. fetch_options("users", "id", "name") -> [(1, "Ana Torres"), (2, "Luis Fernández"), ...]
+    """Obtiene pares ``(id, etiqueta)`` para controles de selección.
 
-    Usa un SELECT directo en vez de pasar por los paquetes de PL/SQL, porque los
-    procedimientos get_all_* de Samuel todavía no abren su cursor (ver TODOs en
-    02_procedures.sql). En cuanto esos procedimientos ya funcionen, hay que
-    reemplazar las llamadas a esta función por call_procedure_with_cursor(...)
-    y borrar este helper — es un puente, no la versión definitiva.
+    Args:
+        table: Tabla de origen validada por los módulos consumidores.
+        id_column: Columna que identifica el registro.
+        label_column: Columna visible para el usuario.
+        order_by: Columna opcional de ordenación; por defecto se usa el ID.
+
+    Returns:
+        Lista de tuplas devuelta por Oracle.
     """
     order_clause = f" ORDER BY {order_by}" if order_by else f" ORDER BY {id_column}"
     query = f"SELECT {id_column}, {label_column} FROM {table}{order_clause}"
@@ -69,12 +65,7 @@ def fetch_options(table, id_column, label_column, order_by=None):
 
 
 def call_procedure(package_procedure, params=None):
-    """
-    Helper genérico para invocar un procedimiento almacenado (sin cursor de salida).
-
-    Ejemplo:
-        call_procedure("pkg_users.insert_user", ["Ana", "ana@correo.com"])
-    """
+    """Ejecuta un procedimiento PL/SQL sin parámetros de salida."""
     params = params or []
     with get_connection() as connection:
         with connection.cursor() as cursor:
@@ -82,7 +73,11 @@ def call_procedure(package_procedure, params=None):
 
 
 def call_procedure_returning_id(package_procedure, params, out_index=-1):
-    """Invoca un procedimiento con parámetro OUT NUMBER y regresa el ID."""
+    """Ejecuta un procedimiento con un parámetro ``OUT NUMBER``.
+
+    ``out_index`` permite insertar el parámetro de salida en cualquier
+    posición de la firma; por defecto se añade al final.
+    """
     params = list(params)
     with get_connection() as connection:
         with connection.cursor() as cursor:
@@ -96,14 +91,10 @@ def call_procedure_returning_id(package_procedure, params, out_index=-1):
 
 
 def call_procedure_with_cursor(package_procedure, params=None):
-    """
-    Helper genérico para invocar un procedimiento que regresa un SYS_REFCURSOR
-    como parámetro de salida, y regresa la lista de filas ya resuelta.
+    """Ejecuta un procedimiento que devuelve un ``SYS_REFCURSOR``.
 
-    Ejemplo:
-        rows = call_procedure_with_cursor("pkg_users.get_all_users")
-        for row in rows:
-            print(row)
+    El cursor de salida se consume dentro de la conexión y se transforma en
+    una lista de filas para que la capa visual no dependa de objetos Oracle.
     """
     params = params or []
     with get_connection() as connection:
@@ -115,7 +106,7 @@ def call_procedure_with_cursor(package_procedure, params=None):
 
 
 def fetch_article_text(article_id):
-    """Lee el texto (CLOB) de un artículo por id."""
+    """Obtiene el contenido CLOB de un artículo o ``None`` si no existe."""
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT text FROM articles WHERE id = :id", {"id": article_id})
@@ -124,7 +115,11 @@ def fetch_article_text(article_id):
 
 
 def fetch_article_taxonomy(article_id):
-    """Regresa (tags, categories) como listas de nombres."""
+    """Obtiene las etiquetas y categorías asociadas a un artículo.
+
+    Returns:
+        Tupla ``(tags, categories)`` con listas de nombres ordenadas.
+    """
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -149,7 +144,7 @@ def fetch_article_taxonomy(article_id):
 
 
 if __name__ == "__main__":
-    # Prueba rápida manual: python db_connection.py
+    # Permite verificar el acceso a Oracle sin iniciar la interfaz gráfica.
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1 FROM DUAL")

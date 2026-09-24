@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Arranca Oracle (Docker) y deja lista la app Python.
+# Inicializa Oracle y prepara el entorno Python de la aplicación.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -20,8 +20,8 @@ until docker logs blog_oracle_db 2>&1 | grep -q "DATABASE IS READY TO USE!"; do
 done
 echo "==> Oracle listo."
 
-echo "==> Aplicando schema + procedimientos (si hace falta)..."
-# Carga idempotente vía sqlplus dentro del contenedor (usuario de app)
+echo "==> Aplicando esquema y procedimientos (si hace falta)..."
+# La existencia de tablas indica que el volumen ya fue inicializado.
 if ! docker exec blog_oracle_db bash -c "echo 'SELECT COUNT(*) FROM user_tables;' | sqlplus -s blog_admin/admin123@FREEPDB2" 2>/dev/null | grep -Eq '[1-9][0-9]*'; then
   echo "    Cargando Schema_db/01_schema.sql ..."
   docker exec -i blog_oracle_db sqlplus -s blog_admin/admin123@FREEPDB2 < Schema_db/01_schema.sql

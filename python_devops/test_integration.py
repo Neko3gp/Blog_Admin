@@ -1,15 +1,9 @@
-"""
-test_integration.py
-Prueba de integración de todo el circuito: Docker -> Oracle -> Python.
+"""Prueba de integración entre Python, Oracle y los paquetes PL/SQL.
 
-Valida:
-1. Conexión y CLOB (vía db_connection.get_connection()).
-2. Datos semilla del schema (users, tags, categories, articles).
-3. Que los 5 paquetes PL/SQL existan y sean invocables con la firma
-   correcta (aunque su lógica interna todavía sea NULL; solo confirma
-   que Python y PL/SQL están bien conectados, no que el CRUD funcione).
-
-Uso: python test_integration.py
+Comprueba la conexión, la lectura de CLOB, las cantidades esperadas del seed
+y la invocación de los procedimientos de usuarios, artículos, comentarios,
+categorías y etiquetas. La prueba escribe datos y, por tanto, debe ejecutarse
+preferentemente sobre un volumen recién inicializado.
 """
 
 import oracledb
@@ -19,19 +13,14 @@ resultados = []
 
 
 def check(nombre, condicion, detalle=""):
+    """Registra y muestra el resultado de una comprobación."""
     estado = "✅" if condicion else "❌"
     resultados.append(condicion)
     print(f"{estado} {nombre}{(' — ' + detalle) if detalle else ''}")
 
 
 def check_cursor_procedure(nombre, funcion):
-    """
-    Para procedimientos que regresan SYS_REFCURSOR: si el cuerpo real
-    todavía es NULL;, oracledb lanza DPY-4025 (cursor nunca abierto).
-    Eso NO es un error de conexión ni de firma — es la señal correcta
-    de que el procedimiento existe y fue invocado bien, solo falta que
-    Samuel implemente el OPEN p_cursor FOR ... adentro.
-    """
+    """Valida un procedimiento que expone un cursor de salida."""
     try:
         funcion()
         check(nombre, True)
@@ -66,7 +55,7 @@ def probar_conexion_y_datos_semilla():
             n = cur.fetchone()[0]
             check("Seed: 2 artículos", n == 2, f"encontrados: {n}")
 
-            # Verifica que el CLOB de 'text' se lea como string normal
+            # Verifica que el adaptador de Oracle convierta el CLOB a texto.
             cur.execute("SELECT title, text FROM articles WHERE id = 1")
             title, text = cur.fetchone()
             check(
@@ -79,7 +68,7 @@ def probar_conexion_y_datos_semilla():
 def probar_firmas_procedimientos():
     print("\n--- 2. Firmas de los 5 paquetes PL/SQL ---")
 
-    # pkg_users
+    # Operaciones del paquete de usuarios.
     try:
         call_procedure("pkg_users.insert_user", ["Prueba Integración", "prueba@correo.com"])
         check("pkg_users.insert_user es invocable", True)
@@ -91,7 +80,7 @@ def probar_firmas_procedimientos():
         lambda: call_procedure_with_cursor("pkg_users.get_all_users"),
     )
 
-    # pkg_articles — create_article tiene parámetro OUT NUMBER, se prueba aparte
+    # create_article requiere un parámetro OUT NUMBER y se prueba directamente.
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -118,7 +107,7 @@ def probar_firmas_procedimientos():
         lambda: call_procedure_with_cursor("pkg_articles.get_all_articles"),
     )
 
-    # pkg_comments
+    # Operaciones del paquete de comentarios.
     try:
         call_procedure("pkg_comments.add_comment", ["Comentario de prueba", 1, 1])
         check("pkg_comments.add_comment es invocable", True)
@@ -130,7 +119,7 @@ def probar_firmas_procedimientos():
         lambda: call_procedure_with_cursor("pkg_comments.get_by_article", [1]),
     )
 
-    # pkg_categories
+    # Operaciones del paquete de categorías.
     try:
         call_procedure("pkg_categories.insert_category", ["Categoría de prueba", "/prueba"])
         check("pkg_categories.insert_category es invocable", True)
@@ -142,7 +131,7 @@ def probar_firmas_procedimientos():
         lambda: call_procedure_with_cursor("pkg_categories.get_all"),
     )
 
-    # pkg_tags
+    # Operaciones del paquete de etiquetas.
     try:
         call_procedure("pkg_tags.insert_tag", ["Tag de prueba", "/prueba"])
         check("pkg_tags.insert_tag es invocable", True)
@@ -156,6 +145,7 @@ def probar_firmas_procedimientos():
 
 
 def main():
+    """Ejecuta todas las comprobaciones y presenta un resumen."""
     probar_conexion_y_datos_semilla()
     probar_firmas_procedimientos()
 
@@ -165,7 +155,7 @@ def main():
     print(f"{exitosos}/{total} checks pasaron.")
     if exitosos == total:
         print("✅ Circuito completo (Docker + Oracle + PL/SQL + Python) funcionando de punta a punta.")
-        print("   Los ⚠️  son procedimientos con firma correcta, pendientes de que Samuel abra el cursor.")
+        print("   Las advertencias indican procedimientos invocados correctamente según su contrato.")
     else:
         print("❌ Hay al menos un problema de conexión o de firma — revisa el detalle arriba.")
 

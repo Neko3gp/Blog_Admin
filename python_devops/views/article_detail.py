@@ -1,16 +1,8 @@
-"""
-views/article_detail.py
-Vista de detalle de un artículo: texto completo + hilo de comentarios
-(autor + fecha + contenido, estilo hilo de Reddit), con formulario para
-agregar uno nuevo al final.
+"""Vista de detalle de un artículo y gestión de comentarios.
 
-"""
-
-"""
-Vista de detalle de un artículo migrada a CustomTkinter.
-Incluye hilo de comentarios y formulario con componentes modernos.
-
-Vista de detalle de un artículo con formulario de comentarios ajustado.
+Recibe un artículo seleccionado desde el feed, completa su contenido si la
+tarjeta no lo incluye y presenta sus comentarios en orden cronológico. El
+formulario delega la persistencia al procedimiento ``pkg_comments``.
 """
 
 import tkinter as tk
@@ -24,6 +16,8 @@ import theme
 
 
 class ArticleDetailView(ctk.CTkFrame):
+    """Muestra el artículo actual y permite añadir comentarios."""
+
     def __init__(self, parent, article, on_back):
         super().__init__(parent, fg_color=theme.PAGE_BG)
         self.article = dict(article)
@@ -39,6 +33,7 @@ class ArticleDetailView(ctk.CTkFrame):
         self._build_body_and_comments()
 
     def _build_header(self):
+        """Construye el título, autor, fecha y control de regreso."""
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=(16, 4))
 
@@ -62,6 +57,7 @@ class ArticleDetailView(ctk.CTkFrame):
         ).pack(fill="x", pady=(2, 0))
 
     def _build_body_and_comments(self):
+        """Construye el contenido del artículo, comentarios y formulario."""
         self.scroll = ctk.CTkScrollableFrame(
             self, fg_color="transparent",
             scrollbar_button_color=theme.SCROLLBAR_FG,
@@ -94,6 +90,7 @@ class ArticleDetailView(ctk.CTkFrame):
         self._build_comment_form(self.scroll)
 
     def _render_comments(self):
+        """Consulta y renderiza los comentarios asociados al artículo."""
         for widget in self.comments_container.winfo_children():
             widget.destroy()
 
@@ -135,10 +132,11 @@ class ArticleDetailView(ctk.CTkFrame):
             ).pack(fill="x", padx=15, pady=(0, 10))
 
     def _build_comment_form(self, parent):
+        """Crea el formulario que invoca ``pkg_comments.add_comment``."""
         form_container = ctk.CTkFrame(parent, fg_color="transparent")
         form_container.pack(fill="x", padx=5, pady=(0, 20))
 
-        # Fila de selección de usuario
+        # El comentario debe conservar la identidad del usuario seleccionado.
         user_row = ctk.CTkFrame(form_container, fg_color="transparent")
         user_row.pack(fill="x", pady=(0, 10))
 
@@ -162,7 +160,7 @@ class ArticleDetailView(ctk.CTkFrame):
             combo_usuario.set(opciones_usuario[0][1])
         combo_usuario.pack(side="left")
 
-        # Etiqueta posicionada directamente encima del cuadro de texto
+        # El texto ocupa una fila independiente para facilitar la lectura.
         ctk.CTkLabel(
             form_container, text="Agregar comentario:", 
             font=ctk.CTkFont(family="Helvetica", size=13, weight="bold"),

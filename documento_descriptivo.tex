@@ -1,147 +1,429 @@
-\documentclass[12pt, a4paper]{article}
+\documentclass[12pt,a4paper]{article}
+
+% Codificación y composición del documento.
 \usepackage[utf8]{inputenc}
-\usepackage[spanish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
 \usepackage{geometry}
 \geometry{margin=2.5cm}
-\usepackage{hyperref}
-\usepackage{enumitem}
-\usepackage{xcolor}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{float}
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    urlcolor=blue!50!black,
+    pdftitle={Memoria tecnica del Administrador de Blog},
+    pdfauthor={Bases de Datos Avanzadas}
+}
 
-\title{\textbf{Plan de Desarrollo y Distribución de Tareas}\\
-\large Proyecto 1\textsuperscript{a}. Evaluación: Administrador de Blog\\
-\normalsize Versión Definitiva}
-\author{Bases de Datos Avanzadas}
+\definecolor{codegray}{RGB}{245,245,245}
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{codegray},
+    frame=single,
+    rulecolor=\color{black!20},
+    breaklines=true,
+    columns=fullflexible,
+    showstringspaces=false
+}
+
+\setlist[itemize]{leftmargin=*}
+\setlist[enumerate]{leftmargin=*}
+
+\title{\textbf{Memoria tecnica del Administrador de Blog}\\
+\large Proyecto de primera evaluacion\\
+\normalsize Bases de Datos Avanzadas}
+\author{Aplicacion Python, Oracle Database y PL/SQL}
 \date{\today}
 
 \begin{document}
+
 \maketitle
+\tableofcontents
+\newpage
 
-\section{Descripción del Proyecto}
-El proyecto consiste en el desarrollo de un sistema de administración de un blog empleando una arquitectura dividida. La persistencia y validación de datos residirá íntegramente en Oracle Database mediante rutinas de PL/SQL, mientras que la interfaz de usuario se gestionará a través de una aplicación de consola en Python utilizando el conector \texttt{oracledb}.
+\section{Resumen ejecutivo}
 
-El modelo de datos comprende cinco entidades principales (\texttt{users}, \texttt{articles}, \texttt{comments}, \texttt{tags}, \texttt{categories}) y exige la resolución de dos relaciones de cardinalidad muchos a muchos (N:M).
+El proyecto implementa una aplicacion de escritorio para administrar un blog
+con una base de datos Oracle. La interfaz esta construida con Python y
+CustomTkinter; la persistencia, las restricciones de integridad y las
+operaciones principales se resuelven en Oracle mediante PL/SQL.
 
-\section{Modelo de Datos (Corregido)}
-El diagrama original asignaba erróneamente los campos \texttt{name} y \texttt{url} a la tabla \texttt{comments}. La estructura corregida es la siguiente:
+La solucion se distribuye en tres capas claramente separadas:
 
-\begin{itemize}[leftmargin=*]
-    \item \textbf{users}: \texttt{id}, \texttt{name}, \texttt{email}
-    \item \textbf{articles}: \texttt{id}, \texttt{title}, \texttt{date}, \texttt{text} (\texttt{CLOB} o \texttt{VARCHAR2(4000)}), FK a \texttt{users}
-    \item \textbf{comments}: \texttt{id}, \texttt{content} (\texttt{CLOB} o \texttt{VARCHAR2(4000)}), \texttt{creation\_date}, FK a \texttt{users}, FK a \texttt{articles}
-    \item \textbf{tags}: \texttt{id}, \texttt{name}, \texttt{url}
-    \item \textbf{categories}: \texttt{id}, \texttt{name}, \texttt{url}
-    \item \textbf{article\_tags} (tabla puente N:M): FK compuesta \texttt{article\_id} + \texttt{tag\_id}, \texttt{ON DELETE CASCADE}
-    \item \textbf{article\_categories} (tabla puente N:M): FK compuesta \texttt{article\_id} + \texttt{category\_id}, \texttt{ON DELETE CASCADE}
-\end{itemize}
+\begin{enumerate}
+    \item \textbf{Persistencia:} tablas relacionales, claves primarias,
+    claves foraneas, relaciones muchos-a-muchos y datos iniciales.
+    \item \textbf{Servicios de base de datos:} paquetes PL/SQL que exponen
+    operaciones de escritura y consultas con \texttt{SYS\_REFCURSOR}.
+    \item \textbf{Aplicacion:} ventana grafica, navegacion, formularios,
+    filtros, comentarios y adaptacion de los resultados Oracle para la GUI.
+\end{enumerate}
 
-Estos nombres de columna quedan \textbf{congelados} desde el borrador del lunes: no se modifican después, para que nadie tenga que reescribir código por un \textit{rename}.
+La base de datos se ejecuta dentro de Docker para que el entorno sea
+reproducible. El usuario solo necesita iniciar el contenedor, cargar los
+scripts SQL y ejecutar la aplicacion Python con las dependencias instaladas.
 
-\subsection*{Nota técnica: manejo de CLOB en Python}
-Si se utiliza \texttt{CLOB}, el conector \texttt{oracledb} \textbf{no} regresa un string directamente al hacer \texttt{fetch}: regresa un objeto LOB. El Integrante 3 debe manejar esto de una de estas dos formas:
+\section{Relacion con el enunciado}
+
+El enunciado solicita una aplicacion Python que administre un blog en Oracle
+mediante procedimientos y funciones almacenadas en PL/SQL. Tambien solicita
+un documento PDF con el codigo documentado y evidencias de ejecucion, ademas
+del repositorio con el codigo fuente.
+
+La implementacion responde a esas condiciones de la siguiente manera:
+
+\begin{longtable}{p{0.32\textwidth}p{0.58\textwidth}}
+\toprule
+\textbf{Requisito} & \textbf{Implementacion en el proyecto} \\
+\midrule
+Aplicacion en Python & \texttt{python\_devops/main\_gui.py} inicia la GUI con CustomTkinter. \\
+Base de datos Oracle & Oracle Database Free se ejecuta mediante \texttt{docker-compose.yml}. \\
+Persistencia con PL/SQL & \texttt{pl\_sql\_backend/02\_procedures.sql} define los paquetes de usuarios, articulos, comentarios, categorias y etiquetas. \\
+Relaciones N:M & \texttt{article\_tags} y \texttt{article\_categories} almacenan las asociaciones. \\
+Textos extensos & Articulos y comentarios utilizan columnas \texttt{CLOB}. \\
+Codigo documentado & Los modulos Python, SQL y scripts contienen encabezados, docstrings y comentarios tecnicos. \\
+Repositorio reproducible & \texttt{docker-compose.yml}, scripts de arranque, dependencias y pruebas permiten reconstruir el entorno. \\
+\bottomrule
+\end{longtable}
+
+\section{Arquitectura general}
+
+El recorrido completo de una operacion es el siguiente:
+
+\begin{enumerate}
+    \item El usuario interactua con una vista de CustomTkinter.
+    \item La vista valida los datos basicos del formulario.
+    \item La vista llama a una funcion de \texttt{db\_connection.py}.
+    \item El adaptador abre una conexion con \texttt{oracledb} y ejecuta un
+    procedimiento PL/SQL o una consulta parametrizada.
+    \item Oracle aplica restricciones, ejecuta la logica de negocio y confirma
+    o revierte la transaccion.
+    \item Python transforma el resultado en filas, listas o identificadores.
+    \item La vista actualiza los widgets visibles y comunica el resultado al
+    usuario.
+\end{enumerate}
+
+La conexion no se mantiene abierta entre operaciones. Cada helper utiliza un
+gestor de contexto para cerrar cursor y conexion al terminar. Esto evita
+conexiones huerfanas y mantiene la responsabilidad transaccional dentro del
+procedimiento PL/SQL que realiza la escritura.
+
+\section{Modelo relacional}
+
+\subsection{Entidades principales}
+
+\begin{longtable}{p{0.23\textwidth}p{0.67\textwidth}}
+\toprule
+\textbf{Tabla} & \textbf{Responsabilidad y columnas relevantes} \\
+\midrule
+\texttt{users} & Identidad de autores y comentaristas. Incluye \texttt{id}, \texttt{name} y \texttt{email}; el correo es unico. \\
+\texttt{articles} & Publicaciones del blog. Incluye \texttt{id}, \texttt{title}, \texttt{pub\_date}, \texttt{text} como CLOB y \texttt{user\_id}. \\
+\texttt{comments} & Comentarios asociados a un articulo y a un usuario. Incluye \texttt{content} como CLOB y \texttt{creation\_date}. \\
+\texttt{tags} & Etiquetas reutilizables con \texttt{id}, \texttt{name} y \texttt{url}. \\
+\texttt{categories} & Categorias reutilizables con \texttt{id}, \texttt{name} y \texttt{url}. \\
+\bottomrule
+\end{longtable}
+
+Las relaciones de uno a muchos se implementan con claves foraneas:
+
 \begin{itemize}
-    \item Llamar explícitamente a \texttt{.read()} sobre el valor antes de imprimirlo, o
-    \item Configurar un \texttt{outputtypehandler} al momento de crear la conexión, para que los CLOB se conviertan automáticamente a string.
+    \item Un usuario puede publicar muchos articulos.
+    \item Un usuario puede escribir muchos comentarios.
+    \item Un articulo puede recibir muchos comentarios.
 \end{itemize}
-Sin esto, la consola imprimirá algo como \texttt{<oracledb.LOB object at 0x...>} en vez del texto del artículo o comentario — esto es comportamiento esperado de la librería, no un error de la base de datos.
 
-\section{Parámetros de Configuración Universales}
-Para garantizar que el código funcione idénticamente en las tres computadoras sin modificar variables, el equipo utilizará este estándar obligatorio desde el Día 1, definido en el \texttt{docker-compose.yml} compartido:
+Las relaciones muchos-a-muchos se resuelven mediante tablas puente:
+
+\begin{itemize}
+    \item \texttt{article\_tags(article\_id, tag\_id)} relaciona articulos y etiquetas.
+    \item \texttt{article\_categories(article\_id, category\_id)} relaciona articulos y categorias.
+\end{itemize}
+
+Cada tabla puente tiene una clave primaria compuesta que impide registrar dos
+veces la misma asociacion. Las claves foraneas utilizan \texttt{ON DELETE
+CASCADE}, de modo que una asociacion no queda huerfana al eliminar su articulo
+o su taxonomia relacionada.
+
+\subsection{Datos iniciales}
+
+El script \texttt{Schema\_db/01\_schema.sql} carga tres usuarios, cinco
+etiquetas, tres categorias y dos articulos. El script primero elimina las
+tablas del modelo y posteriormente las crea de nuevo, por lo que su ejecucion
+es un reinicio destructivo del volumen de desarrollo.
+
+\section{API PL/SQL}
+
+El archivo \texttt{pl\_sql\_backend/02\_procedures.sql} define cinco paquetes.
+Los procedimientos de lectura reciben un parametro de salida
+\texttt{SYS\_REFCURSOR}; los adaptadores Python lo convierten en una lista de
+filas antes de entregarla a la interfaz.
+
+\begin{longtable}{p{0.25\textwidth}p{0.68\textwidth}}
+\toprule
+\textbf{Paquete} & \textbf{Procedimientos y funcion} \\
+\midrule
+\texttt{pkg\_users} & \texttt{insert\_user(p\_name, p\_email)} crea usuarios; \texttt{get\_all\_users(p\_cursor)} devuelve el listado. \\
+\texttt{pkg\_articles} & \texttt{create\_article(..., p\_article\_id OUT)} crea el articulo y devuelve su ID; \texttt{assign\_tag} y \texttt{assign\_category} pueblan las tablas puente; \texttt{get\_all\_articles} lista articulos. \\
+\texttt{pkg\_comments} & \texttt{add\_comment} crea comentarios; \texttt{get\_by\_article} devuelve el hilo de un articulo. \\
+\texttt{pkg\_categories} & \texttt{insert\_category} crea categorias y \texttt{get\_all} las consulta. \\
+\texttt{pkg\_tags} & \texttt{insert\_tag} crea etiquetas y \texttt{get\_all} las consulta. \\
+\bottomrule
+\end{longtable}
+
+Las operaciones de escritura aplican \texttt{COMMIT} cuando terminan
+correctamente. Ante un error aplicable, ejecutan \texttt{ROLLBACK} y elevan un
+mensaje mediante \texttt{RAISE\_APPLICATION\_ERROR}. Algunos casos definidos
+son correo duplicado, usuario inexistente, articulo o taxonomia inexistente y
+asociacion repetida.
+
+\subsection{CRUD de taxonomia}
+
+Los paquetes de categorias y etiquetas exponen alta, consulta, edicion y
+eliminacion. La interfaz genera el nuevo slug al crear o editar un registro y
+utiliza los siguientes procedimientos:
+
+\begin{itemize}
+    \item \texttt{pkg\_categories.update\_category} y
+    \texttt{pkg\_categories.delete\_category}.
+    \item \texttt{pkg\_tags.update\_tag} y
+    \texttt{pkg\_tags.delete\_tag}.
+\end{itemize}
+
+Cada operacion valida que el identificador exista, confirma la transaccion si
+la modifica y revierte los cambios ante un error. Si una taxonomia esta
+referenciada por una asociacion, las restricciones de integridad de Oracle
+determinan si la eliminacion puede realizarse de acuerdo con el modelo
+relacional.
+
+\section{Capa de conexion Python}
+
+\subsection{Configuracion}
+
+Los valores utilizados por Docker y Python son:
 
 \begin{center}
 \begin{tabular}{ll}
 \toprule
-\textbf{Parámetro} & \textbf{Valor} \\
+\textbf{Parametro} & \textbf{Valor} \\
 \midrule
-Docker Service / PDB & \texttt{FREEPDB2} \\
-Usuario BD & \texttt{blog\_admin} \\
-Contraseña BD & \texttt{admin123} \\
+Host & \texttt{localhost} \\
 Puerto & \texttt{1521} \\
+Service/PDB & \texttt{FREEPDB2} \\
+Usuario & \texttt{blog\_admin} \\
+Contrasena de desarrollo & \texttt{admin123} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{Responsable de crear el \texttt{docker-compose.yml} el Día 1: \_\_\_\_\_\_\_\_\_\_\_\_}
+La cadena equivalente es:
+\begin{lstlisting}
+blog_admin/admin123@localhost:1521/FREEPDB2
+\end{lstlisting}
 
-\section{Contrato de Nombres (Naming Conventions)}
-Para evitar bloqueos en la integración de Python, el Integrante 2 encapsulará el código en paquetes PL/SQL y el Integrante 3 utilizará estrictamente estos nombres en su \texttt{cursor.callproc()}. Todos los \texttt{SELECT} múltiples deben retornar un \texttt{SYS\_REFCURSOR} como parámetro \texttt{OUT}.
+Estas credenciales son exclusivamente locales y no deben utilizarse en
+produccion.
 
-\begin{center}
-\begin{tabular}{lll}
+\subsection{Conversion de CLOB}
+
+\texttt{db\_connection.py} configura \texttt{outputtypehandler}. Cuando
+Oracle devuelve una columna de tipo CLOB, el handler solicita un tipo largo de
+texto y entrega un \texttt{str} a Python. Asi, la vista puede mostrar el texto
+del articulo o comentario sin invocar manualmente \texttt{.read()}.
+
+\subsection{Adaptadores disponibles}
+
+\begin{itemize}
+    \item \texttt{get\_connection}: abre una conexion configurada.
+    \item \texttt{call\_procedure}: ejecuta procedimientos sin salida.
+    \item \texttt{call\_procedure\_returning\_id}: registra el parametro OUT
+    y devuelve el ID generado.
+    \item \texttt{call\_procedure\_with\_cursor}: consume un
+    \texttt{SYS\_REFCURSOR} y devuelve filas Python.
+    \item \texttt{fetch\_article\_text}: obtiene el cuerpo completo de un articulo.
+    \item \texttt{fetch\_article\_taxonomy}: devuelve nombres de etiquetas y
+    categorias asociadas a un articulo.
+\end{itemize}
+
+\section{Interfaz grafica y flujos de uso}
+
+\subsection{Ventana principal}
+
+\texttt{main\_gui.py} crea \texttt{BlogAdminApp}, configura el modo oscuro y
+monta una barra lateral con las vistas Inicio, Usuarios, Categorias y
+Etiquetas. La zona central se limpia y reconstruye al cambiar de seccion.
+El boton de publicacion abre una ventana independiente para no perder el
+contexto de la ventana principal.
+
+\subsection{Feed de articulos}
+
+\texttt{FeedView} obtiene los articulos, busca el nombre del autor y consulta
+la taxonomia de cada articulo. Cada resultado se representa con
+\texttt{ArticleCard}, que muestra titulo, autor, fecha y chips de categorias y
+etiquetas. Los controles permiten ordenar por fecha y filtrar por una
+categoria o etiqueta.
+
+\texttt{utils.safe\_get\_all} intenta primero el procedimiento PL/SQL. Si la
+lectura no devuelve filas o falla, utiliza una consulta SQL de respaldo para
+los listados conocidos. Esta decision mantiene operativa la interfaz sin
+confundir un error de lectura con una escritura exitosa.
+
+\subsection{Detalle y comentarios}
+
+Al seleccionar una tarjeta, \texttt{ArticleDetailView} recibe el diccionario
+del articulo. Si el texto no esta cargado, llama a \texttt{fetch\_article\_text}.
+Despues consulta \texttt{pkg\_comments.get\_by\_article}, muestra cada
+comentario con autor y fecha, y ofrece un formulario con usuario y contenido.
+
+Al pulsar \textit{Comentar}, la interfaz valida los campos y ejecuta solamente
+\texttt{pkg\_comments.add\_comment}. La confirmacion de la transaccion es
+responsabilidad del procedimiento PL/SQL; no se abre una segunda conexion para
+realizar un \texttt{commit} independiente.
+
+\subsection{Publicacion de articulos}
+
+\texttt{NewArticleView} solicita titulo, texto y autor. Las etiquetas y
+categorias se cargan como listas de casillas de seleccion multiple. El flujo
+es:
+
+\begin{enumerate}
+    \item Validar titulo, texto y usuario.
+    \item Ejecutar \texttt{pkg\_articles.create\_article}.
+    \item Recibir el ID mediante el parametro OUT.
+    \item Ejecutar \texttt{pkg\_articles.assign\_tag} por cada etiqueta marcada.
+    \item Ejecutar \texttt{pkg\_articles.assign\_category} por cada categoria marcada.
+    \item Cerrar la ventana y recargar el feed.
+\end{enumerate}
+
+\subsection{Usuarios, categorias y etiquetas}
+
+\texttt{UsersView} consulta usuarios y registra nuevos mediante
+\texttt{pkg\_users.insert\_user}. Las vistas de taxonomia comparten
+\texttt{\_TaxonomyPanel}: generan automaticamente un slug URL, llaman al
+procedimiento de alta y recargan la lista. Los listados se presentan dentro de
+contenedores desplazables para soportar una cantidad variable de registros.
+
+\section{Inicializacion del entorno}
+
+\subsection{Arranque automatizado}
+
+Desde la raiz del repositorio se ejecuta:
+
+\begin{lstlisting}[language=bash]
+chmod +x start.sh install_python.sh
+./start.sh
+\end{lstlisting}
+
+El script comprueba Docker, levanta el servicio \texttt{blog\_oracle\_db},
+espera su disponibilidad, verifica si existen tablas, carga el esquema y los
+paquetes cuando es necesario, crea el entorno virtual y ejecuta la prueba de
+conexion.
+
+\subsection{Arranque manual}
+
+\begin{enumerate}
+    \item Iniciar Oracle: \texttt{docker compose up -d}.
+    \item Esperar el estado \texttt{healthy} con \texttt{docker compose ps}.
+    \item Cargar \texttt{Schema\_db/01\_schema.sql} y
+    \texttt{pl\_sql\_backend/02\_procedures.sql} si el volumen es nuevo.
+    \item Crear \texttt{python\_devops/.venv} e instalar
+    \texttt{requirements.txt}.
+    \item Ejecutar \texttt{test\_connection.py}.
+    \item Abrir la GUI con \texttt{.venv/bin/python main\_gui.py}.
+\end{enumerate}
+
+En macOS se necesita Tcl/Tk 8.6 o superior. Si el Python del sistema utiliza
+Tk 8.5, \texttt{install\_python.sh} descarga un Python 3.12 compatible y
+recrea el entorno virtual.
+
+\section{Pruebas y evidencias}
+
+\subsection{Pruebas automatizadas disponibles}
+
+\begin{itemize}
+    \item \texttt{test\_connection.py}: verifica la conexion, una consulta
+    basica y el acceso a Oracle.
+    \item \texttt{test\_integration.py}: comprueba conexion, CLOB, datos
+    semilla e invocacion de los cinco paquetes PL/SQL.
+    \item \texttt{py\_compile}: valida la sintaxis de todos los modulos
+    Python.
+    \item \texttt{docker compose config}: valida la configuracion del servicio
+    Oracle.
+\end{itemize}
+
+\texttt{test\_integration.py} escribe datos de prueba y espera las cantidades
+del seed inicial. Por ese motivo no es idempotente: al ejecutarlo varias veces
+sobre el mismo volumen pueden aparecer conteos superiores o errores por
+duplicados. Para una ejecucion limpia se utiliza
+\texttt{docker compose down -v}, seguido de una inicializacion completa.
+
+\subsection{Evidencias visuales para el PDF}
+
+El producto solicitado incluye capturas de la ejecucion. Para completar la
+entrega visual se recomienda incorporar, despues de ejecutar la aplicacion,
+las siguientes evidencias:
+
+\begin{enumerate}
+    \item Ventana principal con el feed y los filtros.
+    \item Detalle de un articulo con su texto y comentarios.
+    \item Formulario de publicacion con varias etiquetas y categorias marcadas.
+    \item Vista de usuarios con el formulario de alta.
+    \item Vista de categorias y etiquetas con sus slugs.
+    \item Terminal con \texttt{test\_connection.py} y la prueba de integracion.
+    \item Terminal con \texttt{docker compose ps} mostrando Oracle saludable.
+\end{enumerate}
+
+Las capturas deben mostrar la aplicacion funcionando, no unicamente el codigo.
+Se pueden insertar en esta seccion con \texttt{graphicx} usando, por ejemplo:
+
+\begin{lstlisting}[language={[LaTeX]TeX}]
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{evidencias/feed.png}
+    \caption{Feed de articulos con filtros y taxonomia.}
+\end{figure}
+\end{lstlisting}
+
+\section{Estructura del repositorio}
+
+\begin{longtable}{p{0.35\textwidth}p{0.53\textwidth}}
 \toprule
-\textbf{Entidad} & \textbf{Paquete} & \textbf{Ejemplo de Procedimientos} \\
+\textbf{Ruta} & \textbf{Contenido} \\
 \midrule
-Usuarios & \texttt{pkg\_users} & \texttt{insert\_user}, \texttt{get\_all\_users} \\
-Artículos & \texttt{pkg\_articles} & \texttt{create\_article}, \texttt{assign\_tag}, \texttt{assign\_category} \\
-Comentarios & \texttt{pkg\_comments} & \texttt{add\_comment}, \texttt{get\_by\_article} \\
-Categorías & \texttt{pkg\_categories} & \texttt{insert\_category}, \texttt{get\_all} \\
-Etiquetas & \texttt{pkg\_tags} & \texttt{insert\_tag}, \texttt{get\_all} \\
+\texttt{docker-compose.yml} & Servicio Oracle Database Free, volumen persistente y healthcheck. \\
+\texttt{Schema\_db/01\_schema.sql} & Tablas, restricciones, relaciones y datos iniciales. \\
+\texttt{pl\_sql\_backend/02\_procedures.sql} & Paquetes y procedimientos PL/SQL. \\
+\texttt{python\_devops/db\_connection.py} & Conexiones, cursores, CLOB y adaptadores PL/SQL. \\
+\texttt{python\_devops/main\_gui.py} & Ventana raiz y navegacion. \\
+\texttt{python\_devops/views/} & Feed, detalle, publicacion, usuarios y taxonomia. \\
+\texttt{python\_devops/widgets/} & Tarjetas, chips y componentes reutilizables. \\
+\texttt{python\_devops/test\_*.py} & Pruebas de conexion e integracion. \\
+\texttt{start.sh} & Preparacion automatizada del entorno. \\
+\texttt{install\_python.sh} & Instalacion de Python con Tcl/Tk compatible en macOS. \\
 \bottomrule
-\end{tabular}
-\end{center}
+\end{longtable}
 
-\subsection*{Lógica de relaciones N:M}
-\begin{itemize}[leftmargin=*]
-    \item \texttt{pkg\_articles.create\_article} debe tener un parámetro \texttt{OUT} que devuelva el ID generado del artículo.
-    \item \texttt{pkg\_articles.assign\_tag(p\_article\_id, p\_tag\_id)} pobla \texttt{article\_tags} de forma atómica.
-    \item \texttt{pkg\_articles.assign\_category(p\_article\_id, p\_category\_id)} pobla \texttt{article\_categories} de forma atómica, siguiendo el mismo patrón que \texttt{assign\_tag}. \textbf{(Este procedimiento no estaba en el contrato original y debe agregarse: sin él, la relación N:M de categorías queda sin forma de poblarse desde Python.)}
-\end{itemize}
+\section{Conclusiones}
 
-\subsection*{Manejo de excepciones}
-Capturar violaciones de llaves foráneas y \texttt{NO\_DATA\_FOUND}, devolviendo mensajes limpios vía \texttt{RAISE\_APPLICATION\_ERROR}.
+La solucion separa de forma explicita presentacion, acceso a datos y logica
+de base de datos. Oracle conserva la integridad referencial y la logica de
+escritura; Python administra la interaccion, la validacion de entrada y la
+representacion de resultados. Docker permite reproducir la base de datos y los
+scripts de prueba verifican que las piezas puedan comunicarse.
 
-\section{Entorno Compartido y Flujo de Trabajo}
-\begin{itemize}[leftmargin=*]
-    \item \textbf{Ramas de trabajo:} \texttt{feat/schema-db}, \texttt{feat/plsql-backend}, \texttt{feat/python-frontend}, fusionadas sobre \texttt{main} tras validación local. Nadie programa directamente en \texttt{main}.
-    \item \textbf{Revisión antes de fusionar:} quien haga el merge corre el código de esa rama al menos una vez de forma local antes de integrarlo, para no romper el trabajo de los otros dos.
-    \item \textbf{Orden de fusión:} 1\textsuperscript{o} DDL $\rightarrow$ 2\textsuperscript{o} PL/SQL $\rightarrow$ 3\textsuperscript{o} Python.
-\end{itemize}
-
-\section{Cronograma de Checkpoints (Meta: Viernes 7:00 AM)}
-\begin{itemize}[leftmargin=*]
-    \item \textbf{Lunes (Desbloqueo):} Creación del repositorio, \texttt{docker-compose.yml} con credenciales estándar, y despliegue del DDL con \textbf{datos semilla (Mock Data)} para que todo el equipo tenga información con qué trabajar desde el Día 1.
-    \item \textbf{Martes (Backend Base):} DDL definitivo fusionado en \texttt{main} y paquetes PL/SQL base (\texttt{pkg\_users}, \texttt{pkg\_articles}) listos y probados.
-    \item \textbf{Miércoles (Integración Python):} Resto de paquetes PL/SQL terminados e interfaz de consola de Python operando todo el CRUD, incluyendo el flujo N:M (asignar tags y categorías al crear un artículo). Prueba conjunta preliminar por la noche.
-    \item \textbf{Jueves temprano (Prueba Conjunta):} Ejecución end-to-end simultánea en \texttt{main}, con tiempo de reacción antes del cierre.
-    \item \textbf{Jueves (Documentación y Colchón):} Cada integrante ya debe haber comentado su propio código. El Integrante 3 compila el documento PDF final y las capturas. El resto del día queda como margen para corregir cualquier problema detectado en la prueba conjunta.
-\end{itemize}
-
-\section{Distribución de Roles y Tareas}
-
-\subsection{Integrante 1: Arquitectura de Base de Datos (DBA)}
-\textbf{Entregable:} \texttt{01\_schema.sql}
-
-\begin{itemize}[leftmargin=*]
-    \item \textbf{Estructura Base:} Crear las 5 tablas principales (incluyendo \texttt{comments} corregida con \texttt{content}, \texttt{creation\_date} y llaves foráneas a usuario y artículo) y las 2 tablas puente.
-    \item \textbf{Integridad:} Definir \texttt{ON DELETE CASCADE} en las tablas puente. Usar \texttt{CLOB} o \texttt{VARCHAR2(4000)} para los textos largos de artículos y comentarios.
-    \item \textbf{Datos Semilla (Mock Data):} Obligatorio incluir sentencias \texttt{INSERT} al final del script con 3 usuarios, 5 etiquetas, 3 categorías y 2 artículos de prueba.
-    \item \textbf{Borrador congelado:} Publicar el lunes un borrador con los nombres de columna ya definitivos.
-    \item \textbf{Documentación inline} de sus scripts SQL.
-\end{itemize}
-
-\subsection{Integrante 2: Desarrollo Backend en PL/SQL}
-\textbf{Entregable:} \texttt{02\_procedures.sql}
-
-\begin{itemize}[leftmargin=*]
-    \item \textbf{Paquetes CRUD:} Crear los 5 paquetes especificados en el Contrato de Nombres. Todos los \texttt{SELECT} múltiples deben retornar un \texttt{SYS\_REFCURSOR} como parámetro \texttt{OUT}.
-    \item \textbf{Lógica N:M:} \texttt{pkg\_articles.create\_article} con parámetro \texttt{OUT} para el ID generado; \texttt{assign\_tag} y \texttt{assign\_category} para poblar las tablas intermedias de forma atómica.
-    \item \textbf{Manejo de Excepciones:} Capturar \texttt{NO\_DATA\_FOUND} y violaciones de llaves foráneas, devolviendo mensajes limpios vía \texttt{RAISE\_APPLICATION\_ERROR}.
-    \item \textbf{Prueba} todos los procedimientos con bloques anónimos antes de subir.
-    \item \textbf{Documentación interna} de sus rutinas.
-\end{itemize}
-
-\subsection{Integrante 3: Desarrollo en Python y DevOps}
-\textbf{Entregables:} Pull Requests, menús en consola y Documento PDF final.
-
-\begin{itemize}[leftmargin=*]
-    \item \textbf{Repositorio:} Inicializar Git, \texttt{.gitignore}, y compartir el \texttt{docker-compose.yml} configurado con las credenciales estándar.
-    \item \textbf{Capa de Conexión:} Programar el módulo con \texttt{oracledb} para establecer y cerrar la conexión con Oracle DB, configurando un \texttt{outputtypehandler} para que los \texttt{CLOB} se conviertan a string automáticamente.
-    \item \textbf{Interfaz de Consola (Frontend):} Desarrollar los menús interactivos donde el usuario final seleccionará operaciones (Ej. "1. Crear Usuario", "2. Publicar Artículo").
-    \item \textbf{Interacción N:M:} Al crear un artículo desde el menú, llamar a \texttt{create\_article}, capturar el ID de retorno, pedir al usuario los IDs de etiquetas y categorías, e invocar \texttt{assign\_tag} y \texttt{assign\_category} en bucle por cada una.
-    \item \textbf{Cursores:} Emplear \texttt{cursor.var(oracledb.DB\_TYPE\_CURSOR)} para extraer los resultados de los procedimientos de lectura e imprimirlos en la consola.
-    \item \textbf{Entregable final:} Generar los Pull Requests, integrar el código final en \texttt{main}, y maquetar el Documento PDF con la documentación de todo el equipo y capturas de la ejecución.
-\end{itemize}
+El flujo de publicacion demuestra el requisito N:M al crear un articulo,
+recibir su ID y asignarle multiples etiquetas y categorias. El flujo de
+comentarios demuestra la relacion entre usuarios, articulos y comentarios. La
+documentacion del codigo y las evidencias visuales completan la entrega
+solicitada por el proyecto.
 
 \end{document}

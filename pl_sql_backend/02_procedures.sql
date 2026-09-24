@@ -1,4 +1,11 @@
--- ---------- PKG_USERS ----------
+-- =====================================================
+-- 02_procedures.sql
+-- Propósito: definir la API PL/SQL de la aplicación.
+-- Cada paquete encapsula las operaciones de una entidad y confirma o
+-- revierte sus propias transacciones de escritura.
+-- =====================================================
+
+-- ---------- Usuarios ----------
 
 CREATE OR REPLACE PACKAGE pkg_users AS
     PROCEDURE insert_user(
@@ -44,7 +51,7 @@ END pkg_users;
 /
 
 
--- ---------- PKG_ARTICLES ----------
+-- ---------- Artículos y asociaciones taxonómicas ----------
 
 CREATE OR REPLACE PACKAGE pkg_articles AS
     PROCEDURE create_article(
@@ -147,7 +154,7 @@ END pkg_articles;
 /
 
 
--- ---------- PKG_COMMENTS ----------
+-- ---------- Comentarios ----------
 
 CREATE OR REPLACE PACKAGE pkg_comments AS
     PROCEDURE add_comment(
@@ -200,12 +207,22 @@ END pkg_comments;
 /
 
 
--- ---------- PKG_CATEGORIES ----------
+-- ---------- Categorías ----------
 
 CREATE OR REPLACE PACKAGE pkg_categories AS
     PROCEDURE insert_category(
         p_name IN VARCHAR2,
         p_url  IN VARCHAR2
+    );
+
+    PROCEDURE update_category(
+        p_id   IN NUMBER,
+        p_name IN VARCHAR2,
+        p_url  IN VARCHAR2
+    );
+
+    PROCEDURE delete_category(
+        p_id IN NUMBER
     );
 
     PROCEDURE get_all(
@@ -230,6 +247,40 @@ CREATE OR REPLACE PACKAGE BODY pkg_categories AS
             RAISE;
     END insert_category;
 
+    PROCEDURE update_category(
+        p_id   IN NUMBER,
+        p_name IN VARCHAR2,
+        p_url  IN VARCHAR2
+    ) IS
+    BEGIN
+        UPDATE categories
+        SET name = p_name, url = p_url
+        WHERE id = p_id;
+        IF SQL%ROWCOUNT = 0 THEN
+            RAISE_APPLICATION_ERROR(-20008, 'Categoría no existe');
+        END IF;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END update_category;
+
+    PROCEDURE delete_category(
+        p_id IN NUMBER
+    ) IS
+    BEGIN
+        DELETE FROM categories WHERE id = p_id;
+        IF SQL%ROWCOUNT = 0 THEN
+            RAISE_APPLICATION_ERROR(-20009, 'Categoría no existe');
+        END IF;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END delete_category;
+
     PROCEDURE get_all(
         p_cursor OUT SYS_REFCURSOR
     ) IS
@@ -244,12 +295,22 @@ END pkg_categories;
 /
 
 
--- ---------- PKG_TAGS ----------
+-- ---------- Etiquetas ----------
 
 CREATE OR REPLACE PACKAGE pkg_tags AS
     PROCEDURE insert_tag(
         p_name IN VARCHAR2,
         p_url  IN VARCHAR2
+    );
+
+    PROCEDURE update_tag(
+        p_id   IN NUMBER,
+        p_name IN VARCHAR2,
+        p_url  IN VARCHAR2
+    );
+
+    PROCEDURE delete_tag(
+        p_id IN NUMBER
     );
 
     PROCEDURE get_all(
@@ -273,6 +334,40 @@ CREATE OR REPLACE PACKAGE BODY pkg_tags AS
             ROLLBACK;
             RAISE;
     END insert_tag;
+
+    PROCEDURE update_tag(
+        p_id   IN NUMBER,
+        p_name IN VARCHAR2,
+        p_url  IN VARCHAR2
+    ) IS
+    BEGIN
+        UPDATE tags
+        SET name = p_name, url = p_url
+        WHERE id = p_id;
+        IF SQL%ROWCOUNT = 0 THEN
+            RAISE_APPLICATION_ERROR(-20010, 'Etiqueta no existe');
+        END IF;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END update_tag;
+
+    PROCEDURE delete_tag(
+        p_id IN NUMBER
+    ) IS
+    BEGIN
+        DELETE FROM tags WHERE id = p_id;
+        IF SQL%ROWCOUNT = 0 THEN
+            RAISE_APPLICATION_ERROR(-20011, 'Etiqueta no existe');
+        END IF;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END delete_tag;
 
     PROCEDURE get_all(
         p_cursor OUT SYS_REFCURSOR

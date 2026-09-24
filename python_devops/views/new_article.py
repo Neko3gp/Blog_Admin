@@ -1,30 +1,33 @@
-"""
-views/new_article.py
-Formulario de publicación de artículo. 
-Actualizado con CustomTkinter: se reemplazan los Listbox antiguos por 
-paneles con Checkboxes modernos y scroll automático.
+"""Ventana para crear artículos y asignar su taxonomía.
+
+El formulario se abre como una ventana secundaria, valida los campos
+obligatorios y ejecuta los procedimientos PL/SQL de creación y asociación.
+Las etiquetas y categorías se modelan como selecciones múltiples.
 """
 
 import customtkinter as ctk
 from tkinter import messagebox
 from db_connection import fetch_options, call_procedure_returning_id, call_procedure
 
-# Cambiamos CTkFrame por CTkToplevel para que sea una ventana independiente
 class NewArticleView(ctk.CTkToplevel):
+    """Ventana flotante con los campos de un artículo nuevo."""
+
     def __init__(self, master, go_back_callback=None, **kwargs):
         super().__init__(master, **kwargs)
         self.go_back_callback = go_back_callback
         
-        # Configuración de la nueva ventana flotante
+        # La publicación se realiza en una ventana independiente para no
+        # desmontar la vista principal mientras se completa el formulario.
         self.title("Publicar Nuevo Artículo")
         self.geometry("550x700")
-        self.focus_force() # Obliga a la ventana a aparecer al frente
+        self.focus_force()
 
-        # 1. SCROLL MAESTRO
+        # Un contenedor desplazable permite mantener accesibles todos los
+        # campos aunque la ventana tenga una altura reducida.
         self.main_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.main_scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # --- Campos principales ---
+        # Campos principales del artículo.
         ctk.CTkLabel(self.main_scroll, text="Título:", font=("Arial", 14, "bold")).pack(anchor="w")
         self.title_entry = ctk.CTkEntry(self.main_scroll, placeholder_text="Escribe el título...")
         self.title_entry.pack(fill="x", pady=(0, 15))
@@ -33,18 +36,18 @@ class NewArticleView(ctk.CTkToplevel):
         self.text_entry = ctk.CTkTextbox(self.main_scroll, height=150)
         self.text_entry.pack(fill="x", pady=(0, 15))
 
-        # --- Usuario Autor ---
+        # El autor se identifica por su nombre, pero se persiste mediante su ID.
         ctk.CTkLabel(self.main_scroll, text="Usuario autor:", font=("Arial", 14, "bold")).pack(anchor="w")
         self.users_list = fetch_options("users", "id", "name")
         user_names = [u[1] for u in self.users_list] if self.users_list else []
         self.combo_user = ctk.CTkComboBox(self.main_scroll, values=user_names)
         self.combo_user.pack(fill="x", pady=(0, 15))
 
-        # Variables para acordeón manual
+        # El estado de visibilidad de cada sección se mantiene por separado.
         self.tags_visible = False
         self.cats_visible = False
 
-        # --- 2. SECCIÓN COLAPSABLE DE ETIQUETAS ---
+        # Sección colapsable de etiquetas.
         self.tags_container = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
         self.tags_container.pack(fill="x", pady=(10, 5))
 
@@ -67,7 +70,7 @@ class NewArticleView(ctk.CTkToplevel):
                 cb.pack(anchor="w", padx=5, pady=2)
                 self.tag_vars[tag[0]] = var
 
-        # --- 3. SECCIÓN COLAPSABLE DE CATEGORÍAS ---
+        # Sección colapsable de categorías.
         self.cats_container = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
         self.cats_container.pack(fill="x", pady=(10, 15))
 
@@ -90,7 +93,7 @@ class NewArticleView(ctk.CTkToplevel):
                 cb.pack(anchor="w", padx=5, pady=2)
                 self.cat_vars[cat[0]] = var
 
-        # --- Botón Guardar ---
+        # El botón ejecuta la validación y las operaciones de persistencia.
         self.btn_guardar = ctk.CTkButton(
             self.main_scroll, text="Publicar Artículo", 
             font=("Arial", 14, "bold"), fg_color="#28a745", hover_color="#218838",
@@ -99,6 +102,7 @@ class NewArticleView(ctk.CTkToplevel):
         self.btn_guardar.pack(pady=20, fill="x")
 
     def toggle_tags(self):
+        """Muestra u oculta las opciones de etiquetas."""
         if self.tags_visible:
             self.tags_frame.pack_forget()
             self.btn_toggle_tags.configure(text="Etiquetas ►")
@@ -109,6 +113,7 @@ class NewArticleView(ctk.CTkToplevel):
             self.tags_visible = True
 
     def toggle_cats(self):
+        """Muestra u oculta las opciones de categorías."""
         if self.cats_visible:
             self.cats_frame.pack_forget()
             self.btn_toggle_cats.configure(text="Categorías ►")
@@ -119,6 +124,7 @@ class NewArticleView(ctk.CTkToplevel):
             self.cats_visible = True
 
     def guardar(self):
+        """Valida el formulario, crea el artículo y asigna su taxonomía."""
         titulo = self.title_entry.get().strip()
         texto = self.text_entry.get("0.0", "end").strip()
         user_name = self.combo_user.get()
@@ -143,18 +149,15 @@ class NewArticleView(ctk.CTkToplevel):
 
                 messagebox.showinfo("Éxito", f"Artículo publicado correctamente (ID: {article_id}).")
                 
-                # Cerramos automáticamente esta ventana flotante tras publicar
                 self.destroy()
 
-                # Recargamos la vista del main_gui por debajo
                 if self.go_back_callback:
                     self.go_back_callback()
                     
         except Exception as e:
             messagebox.showerror("Error de BD", str(e))
 
-# --- Función puente para main_gui.py ---
 def abrir_form_publicar_articulo(parent_frame, on_saved=None):
-    # Ya no destruimos la ventana base. Solo abrimos la nueva ventana encima.
+    """Abre la ventana de publicación y devuelve su instancia."""
     vista = NewArticleView(parent_frame, go_back_callback=on_saved)
     return vista

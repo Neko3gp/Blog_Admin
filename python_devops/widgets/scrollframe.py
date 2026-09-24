@@ -1,10 +1,4 @@
-"""
-widgets/scrollframe.py
-Frame con scroll vertical, usado para el feed de artículos y listas largas.
-tkinter no tiene un contenedor scrollable nativo más allá de Canvas +
-Scrollbar, así que este widget envuelve ese patrón para reutilizarlo en
-varias vistas.
-"""
+"""Contenedor reutilizable con desplazamiento vertical basado en Canvas."""
 
 import tkinter as tk
 
@@ -12,6 +6,8 @@ import theme
 
 
 class ScrollableFrame(tk.Frame):
+    """Sincroniza un frame interno con un Canvas y su barra vertical."""
+
     def __init__(self, parent, bg=theme.PAGE_BG, **kwargs):
         super().__init__(parent, **kwargs)
 
@@ -35,19 +31,23 @@ class ScrollableFrame(tk.Frame):
         self.scrollbar.pack(side="right", fill="y")
 
     def _resize_inner(self, event):
+        """Ajusta el ancho del contenido al ancho visible del Canvas."""
         self.canvas.itemconfig(self._window, width=event.width)
 
     def _bind_mousewheel(self, _event):
+        """Activa los eventos de rueda mientras el puntero está dentro."""
         self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
         self.canvas.bind_all("<Button-4>", self._on_mousewheel)
         self.canvas.bind_all("<Button-5>", self._on_mousewheel)
 
     def _unbind_mousewheel(self, _event):
+        """Desactiva los eventos globales al abandonar el componente."""
         self.canvas.unbind_all("<MouseWheel>")
         self.canvas.unbind_all("<Button-4>")
         self.canvas.unbind_all("<Button-5>")
 
     def _on_mousewheel(self, event):
+        """Convierte eventos de rueda de macOS, Windows y Linux en scroll."""
         if event.num == 4:
             self.canvas.yview_scroll(-1, "units")
         elif event.num == 5:

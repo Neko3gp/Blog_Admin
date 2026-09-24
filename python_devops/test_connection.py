@@ -1,11 +1,14 @@
+"""Prueba mínima de conectividad entre Python y Oracle."""
+
 import oracledb
 
-# Credenciales estándar del proyecto (ver README)
+# Deben coincidir con docker-compose.yml y db_connection.py.
 USER = "blog_admin"
 PASSWORD = "admin123"
 DSN = "localhost:1521/FREEPDB2"
 
 def main():
+    """Ejecuta una consulta elemental y muestra el resultado."""
     try:
         with oracledb.connect(user=USER, password=PASSWORD, dsn=DSN) as connection:
             print("✅ Conexión exitosa a Oracle.")
