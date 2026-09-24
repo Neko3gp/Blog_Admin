@@ -3,9 +3,16 @@ views/taxonomy.py
 Vistas separadas de Categorías y Etiquetas.
 """
 
+"""
+views/taxonomy.py
+Vistas separadas de Categorías y Etiquetas con CRUD completo y Auto-Slug.
+"""
+
 import tkinter as tk
 from tkinter import messagebox
 import customtkinter as ctk
+import re
+import unicodedata
 
 from utils import safe_get_all
 from db_connection import call_procedure
@@ -13,11 +20,20 @@ import oracledb
 import theme
 
 
+def generar_slug(texto):
+    """Convierte un texto normal en formato URL amigable (ej. 'Bases de Datos' -> 'bases-de-datos')"""
+    texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
+    texto = texto.lower().strip()
+    return re.sub(r'[-\s]+', '-', re.sub(r'[^a-z0-9\s-]', '', texto))
+
 class _TaxonomyPanel(ctk.CTkFrame):
-    def __init__(self, parent, titulo, proc_get_all, proc_insert):
+    # Agregamos proc_update y proc_delete a la firma para mantener tu diseño modular
+    def __init__(self, parent, titulo, proc_get_all, proc_insert, proc_update, proc_delete):
         super().__init__(parent, fg_color="transparent")
         self.proc_get_all = proc_get_all
         self.proc_insert = proc_insert
+        self.proc_update = proc_update
+        self.proc_delete = proc_delete
         self.titulo = titulo
 
         body = ctk.CTkFrame(self, fg_color="transparent")
@@ -57,16 +73,7 @@ class _TaxonomyPanel(ctk.CTkFrame):
         )
         self.entry_nombre.pack(fill="x", padx=16, pady=(0, 10))
 
-        ctk.CTkLabel(
-            form_col, text="URL:", text_color=theme.PANEL_FG,
-            font=ctk.CTkFont(family="Helvetica", size=13)
-        ).pack(anchor="w", padx=16, pady=(10, 0))
-
-        self.entry_url = ctk.CTkEntry(
-            form_col, fg_color=theme.ENTRY_BG,
-            border_color=theme.ENTRY_BORDER, text_color=theme.ENTRY_FG
-        )
-        self.entry_url.pack(fill="x", padx=16, pady=(0, 10))
+        # Se eliminó el campo entry_url visualmente para mejorar UX
 
         ctk.CTkButton(
             form_col, text="Guardar", command=self.guardar,
@@ -79,23 +86,28 @@ class _TaxonomyPanel(ctk.CTkFrame):
 
     def guardar(self):
         nombre = self.entry_nombre.get().strip()
-        url = self.entry_url.get().strip()
         if not nombre:
             messagebox.showwarning("Falta información", "El nombre es obligatorio.")
             return
+            
+        # Generamos la URL automáticamente en el fondo
+        url = generar_slug(nombre)
+        
         try:
-            call_procedure(self.proc_insert, [nombre, url or None])
+            call_procedure(self.proc_insert, [nombre, url])
         except oracledb.Error as e:
             messagebox.showerror("Error", str(e).split("\n")[0])
             return
+            
         self.entry_nombre.delete(0, tk.END)
-        self.entry_url.delete(0, tk.END)
         self.reload()
-        messagebox.showinfo("Listo", f"{self.titulo} creada.")
+        messagebox.showinfo("Listo", f"{self.titulo} creada exitosamente.")
 
     def reload(self):
         for widget in self.scroll.winfo_children():
             widget.destroy()
+            
+        self.update_idletasks() # Evita parpadeos al recargar la lista
 
         rows = safe_get_all(self.proc_get_all)
 
@@ -121,19 +133,54 @@ class _TaxonomyPanel(ctk.CTkFrame):
             item = ctk.CTkFrame(self.scroll, fg_color=theme.ENTRY_BG, corner_radius=6)
             item.pack(fill="x", pady=4, padx=2)
 
+            info_frame = ctk.CTkFrame(item, fg_color="transparent")
+            info_frame.pack(side="left", fill="both", expand=True)
+
             ctk.CTkLabel(
-                item, text=nombre, font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+                info_frame, text=nombre, font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
                 text_color=theme.PANEL_FG
             ).pack(fill="x", padx=15, pady=(10, 0), anchor="w")
 
             if url:
                 ctk.CTkLabel(
-                    item, text=url, font=ctk.CTkFont(family="Segoe UI", size=12),
+                    info_frame, text=url, font=ctk.CTkFont(family="Segoe UI", size=12),
                     text_color=theme.TEXT_MUTED
                 ).pack(fill="x", padx=15, pady=(0, 10), anchor="w")
             else:
-                ctk.CTkFrame(item, fg_color="transparent", height=10).pack()
+                ctk.CTkFrame(info_frame, fg_color="transparent", height=10).pack()
 
+            # Botón Eliminar
+            ctk.CTkButton(
+                item, text="✖", width=30, fg_color="#dc3545", hover_color="#c82333",
+                command=lambda id=_id, n=nombre: self.eliminar(id, n)
+            ).pack(side="right", padx=(2, 15))
+            
+            # Botón Editar
+            ctk.CTkButton(
+                item, text="✎", width=30, fg_color="#ffc107", hover_color="#e0a800", text_color="black",
+                command=lambda id=_id, n=nombre: self.editar(id, n)
+            ).pack(side="right", padx=2)
+
+    def editar(self, item_id, current_name):
+        dialog = ctk.CTkInputDialog(text=f"Nuevo nombre para '{current_name}':", title="Editar")
+        nuevo_nombre = dialog.get_input()
+        
+        if nuevo_nombre and nuevo_nombre.strip() != current_name:
+            nuevo_slug = generar_slug(nuevo_nombre)
+            try:
+                call_procedure(self.proc_update, [item_id, nuevo_nombre.strip(), nuevo_slug])
+                self.reload()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo actualizar: {e}")
+
+    def eliminar(self, item_id, item_name):
+        confirm = messagebox.askyesno("Confirmar", f"¿Seguro que deseas eliminar '{item_name}'?")
+        if confirm:
+            try:
+                call_procedure(self.proc_delete, [item_id])
+                self.reload()
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo eliminar. Probablemente esté en uso.\nDetalles: {e}")
 
 class CategoriesView(ctk.CTkFrame):
     def __init__(self, parent):
@@ -145,10 +192,13 @@ class CategoriesView(ctk.CTkFrame):
             text_color=theme.PAGE_FG
         ).pack(anchor="w", padx=20, pady=(20, 10))
 
+        # Integramos las firmas de Update y Delete asumiendo la nomenclatura de tu equipo
         panel = _TaxonomyPanel(
             self, "Categoría",
             "pkg_categories.get_all",
             "pkg_categories.insert_category",
+            "pkg_categories.update_category",
+            "pkg_categories.delete_category"
         )
         panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
@@ -163,9 +213,12 @@ class TagsView(ctk.CTkFrame):
             text_color=theme.PAGE_FG
         ).pack(anchor="w", padx=20, pady=(20, 10))
 
+        # Integramos las firmas de Update y Delete
         panel = _TaxonomyPanel(
             self, "Etiqueta",
             "pkg_tags.get_all",
             "pkg_tags.insert_tag",
+            "pkg_tags.update_tag",
+            "pkg_tags.delete_tag"
         )
         panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))

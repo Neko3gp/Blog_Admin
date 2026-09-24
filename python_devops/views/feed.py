@@ -7,7 +7,7 @@ con ordenamiento por fecha y filtro por categoría/tag.
 import customtkinter as ctk
 
 import theme
-from db_connection import fetch_options
+from db_connection import fetch_options, fetch_article_taxonomy
 from utils import safe_get_all, users_lookup
 from widgets.cards import ArticleCard
 
@@ -63,12 +63,7 @@ class FeedView(ctk.CTkFrame):
         )
         self.combo_tag.pack(side="left", padx=(0, 12))
 
-        ctk.CTkButton(
-            controls, text="Actualizar", width=80,
-            fg_color=theme.BTN_SECONDARY_BG, hover_color=theme.BTN_SECONDARY_HOVER,
-            text_color=theme.BTN_SECONDARY_FG, border_width=1, border_color=theme.BTN_SECONDARY_BORDER,
-            command=self.reload
-        ).pack(side="left")
+        
 
         self._cargar_filtros()
 
@@ -104,19 +99,27 @@ class FeedView(ctk.CTkFrame):
         if rows is None:
             self._articles = None
         else:
-            self._articles = [
-                {
-                    "id": r[0], "title": r[1], "date": r[2],
-                    "author": author_by_id.get(r[3], f"Usuario {r[3]}"),
-                    "snippet": "", "tags": [], "categories": [],
-                }
-                for r in rows
-            ]
+            self._articles = []
+            for row in rows:
+                article_id = row[0]
+                tags, categories = fetch_article_taxonomy(article_id)
+                self._articles.append(
+                    {
+                        "id": article_id, "title": row[1], "date": row[2],
+                        "author": author_by_id.get(row[3], f"Usuario {row[3]}"),
+                        "snippet": "", "tags": tags, "categories": categories,
+                    }
+                )
         self._render()
 
     def _render(self):
+        # 1. Limpiamos los widgets actuales
         for widget in self.scroll_area.winfo_children():
             widget.destroy()
+
+        # 2. EVITAR PARPADEO: Forzamos a la interfaz gráfica a procesar 
+        # la limpieza antes de empezar a pintar los nuevos elementos.
+        self.update_idletasks()
 
         if self._articles is None:
             self._render_placeholder("pendiente de conectar con pkg_articles.get_all_articles")

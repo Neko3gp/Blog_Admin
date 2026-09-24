@@ -117,8 +117,7 @@ class BlogAdminApp(ctk.CTk):
     def _make_nav_button(self, parent, texto, comando, page_key=None):
         btn = ctk.CTkButton(
             parent, text=texto, anchor="w", fg_color="transparent",
-            text_color=theme.SIDEBAR_TEXT, hover_color=theme.SIDEBAR_HOVER_BG,
-            font=ctk.CTkFont(family="Helvetica", size=14), command=comando, corner_radius=8
+            text_color=theme.SIDEBAR_TEXT, hover_color=theme.SIDEBAR_HOVER_BG,            font=ctk.CTkFont(family="Helvetica", size=14), command=comando, corner_radius=8
         )
         btn.pack(fill="x", padx=10, pady=2)
         return btn

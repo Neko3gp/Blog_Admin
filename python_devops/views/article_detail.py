@@ -18,7 +18,7 @@ from tkinter import messagebox
 import customtkinter as ctk
 import oracledb
 
-from db_connection import fetch_options, call_procedure, fetch_article_text, get_connection
+from db_connection import fetch_options, call_procedure, fetch_article_text
 from utils import safe_get_all, users_lookup
 import theme
 
@@ -189,13 +189,6 @@ class ArticleDetailView(ctk.CTkFrame):
                     "pkg_comments.add_comment",
                     [contenido, user_id, self.article.get("id")],
                 )
-                # Confirmación explícita de transacción en la BD
-                try:
-                    conn = get_connection()
-                    if conn:
-                        conn.commit()
-                except Exception:
-                    pass
 
             except oracledb.Error as e:
                 messagebox.showerror("Error de Base de Datos", str(e).split("\n")[0])
