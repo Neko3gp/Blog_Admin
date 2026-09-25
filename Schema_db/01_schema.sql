@@ -80,24 +80,31 @@ CREATE TABLE article_categories (
         REFERENCES categories(id) ON DELETE CASCADE
 );
 
--- Datos semilla
+-- Datos dummy
+INSERT INTO users (name, email) VALUES ('Demo User', 'demo@correo.com');
 INSERT INTO users (name, email) VALUES ('Ana Torres', 'ana@correo.com');
-INSERT INTO users (name, email) VALUES ('Luis Fernández', 'luis@correo.com');
-INSERT INTO users (name, email) VALUES ('Carla Gómez', 'carla@correo.com');
 
-INSERT INTO tags (name, url) VALUES ('Tecnología', '/tags/tecnologia');
-INSERT INTO tags (name, url) VALUES ('Oracle', '/tags/oracle');
-INSERT INTO tags (name, url) VALUES ('Python', '/tags/python');
-INSERT INTO tags (name, url) VALUES ('Bases de Datos', '/tags/bases-de-datos');
-INSERT INTO tags (name, url) VALUES ('Tutorial', '/tags/tutorial');
+INSERT INTO tags (name, url) VALUES ('Demo Tag', '/tags/demo');
 
-INSERT INTO categories (name, url) VALUES ('Desarrollo', '/categorias/desarrollo');
-INSERT INTO categories (name, url) VALUES ('Educación', '/categorias/educacion');
-INSERT INTO categories (name, url) VALUES ('Noticias', '/categorias/noticias');
+INSERT INTO categories (name, url) VALUES ('Demo Cat', '/categorias/demo');
 
 INSERT INTO articles (title, text, user_id)
-    VALUES ('Introducción a PL/SQL', 'Este artículo cubre los conceptos básicos de PL/SQL para trabajar con Oracle.', 1);
-INSERT INTO articles (title, text, user_id)
-    VALUES ('Conectando Python con Oracle', 'En este artículo exploramos el conector oracledb y sus buenas prácticas.', 2);
+SELECT 'Artículo demo', 'Texto de ejemplo para semilla.', id
+FROM users WHERE email = 'demo@correo.com';
+
+INSERT INTO comments (content, user_id, article_id)
+SELECT 'Comentario demo de prueba.', u.id, a.id
+FROM users u, articles a
+WHERE u.email = 'demo@correo.com' AND a.title = 'Artículo demo';
+
+INSERT INTO article_tags (article_id, tag_id)
+SELECT a.id, t.id
+FROM articles a, tags t
+WHERE a.title = 'Artículo demo' AND t.name = 'Demo Tag';
+
+INSERT INTO article_categories (article_id, category_id)
+SELECT a.id, c.id
+FROM articles a, categories c
+WHERE a.title = 'Artículo demo' AND c.name = 'Demo Cat';
 
 COMMIT;
