@@ -13,23 +13,23 @@ fi
 echo "==> Levantando Oracle (docker compose up -d)..."
 docker compose up -d
 
-echo "==> Esperando DATABASE IS READY TO USE! (puede tardar varios minutos la 1ª vez)..."
-until docker logs blog_oracle_db 2>&1 | grep -q "DATABASE IS READY TO USE!"; do
+echo "==> Esperando que Oracle esté saludable (puede tardar varios minutos la 1ª vez)..."
+until [ "$(docker inspect -f '{{.State.Health.Status}}' blog_oracle_db 2>/dev/null)" = "healthy" ]; do
   sleep 5
   echo "    ...aún inicializando..."
 done
 echo "==> Oracle listo."
 
-echo "==> Aplicando esquema y procedimientos (si hace falta)..."
+echo "==> Aplicando esquema y procedimientos..."
 # La existencia de tablas indica que el volumen ya fue inicializado.
-if ! docker exec blog_oracle_db bash -c "echo 'SELECT COUNT(*) FROM user_tables;' | sqlplus -s blog_admin/admin123@FREEPDB2" 2>/dev/null | grep -Eq '[1-9][0-9]*'; then
+if ! docker exec blog_oracle_db bash -c "echo 'SELECT COUNT(*) FROM user_tables;' | sqlplus -s blog_admin/admin123@localhost:1521/FREEPDB2" 2>/dev/null | grep -Eq '[1-9][0-9]*'; then
   echo "    Cargando Schema_db/01_schema.sql ..."
-  docker exec -i blog_oracle_db sqlplus -s blog_admin/admin123@FREEPDB2 < Schema_db/01_schema.sql
-  echo "    Cargando pl_sql_backend/02_procedures.sql ..."
-  docker exec -i blog_oracle_db sqlplus -s blog_admin/admin123@FREEPDB2 < pl_sql_backend/02_procedures.sql
+  docker exec -i blog_oracle_db sqlplus -s blog_admin/admin123@localhost:1521/FREEPDB2 < Schema_db/01_schema.sql
 else
   echo "    Tablas ya presentes; se omite la carga DDL."
 fi
+echo "    Cargando pl_sql_backend/02_procedures.sql ..."
+docker exec -i blog_oracle_db sqlplus -s blog_admin/admin123@localhost:1521/FREEPDB2 < pl_sql_backend/02_procedures.sql
 
 echo "==> Probando conexión Python..."
 cd python_devops
