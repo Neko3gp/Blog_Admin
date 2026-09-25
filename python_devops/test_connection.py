@@ -1,4 +1,4 @@
-"""Prueba mínima de conectividad entre Python y Oracle."""
+"""Smoke test: SELECT 1 contra FREEPDB2."""
 
 import oracledb
 
@@ -8,7 +8,6 @@ PASSWORD = "admin123"
 DSN = "localhost:1521/FREEPDB2"
 
 def main():
-    """Ejecuta una consulta elemental y muestra el resultado."""
     try:
         with oracledb.connect(user=USER, password=PASSWORD, dsn=DSN) as connection:
             print("✅ Conexión exitosa a Oracle.")

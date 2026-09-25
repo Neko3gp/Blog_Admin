@@ -1,1 +1,1 @@
-"""Vistas de la interfaz gráfica del Administrador de Blog."""
+"""Vistas GUI (feed, usuarios, taxonomía, artículos, comentarios)."""

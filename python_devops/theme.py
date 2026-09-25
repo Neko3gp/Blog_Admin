@@ -1,4 +1,4 @@
-"""Paleta centralizada para mantener consistente la interfaz gráfica."""
+"""Colores de la GUI."""
 
 # Superficies y texto de la ventana principal.
 CONTENT_BG = "#131314"

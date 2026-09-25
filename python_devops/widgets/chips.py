@@ -1,4 +1,4 @@
-"""Construcción de etiquetas visuales para categorías y tags."""
+"""Chips visuales de categoría/tag en las tarjetas del feed."""
 
 import tkinter as tk
 
@@ -7,7 +7,6 @@ CATEGORY_COLORS = {"bg": "#fbe7c6", "fg": "#a3660a"}
 
 
 def make_chip(parent, text, kind="tag"):
-    """Crea un ``Label`` con color diferenciado según el tipo de taxonomía."""
     colors = TAG_COLORS if kind == "tag" else CATEGORY_COLORS
     return tk.Label(
         parent,

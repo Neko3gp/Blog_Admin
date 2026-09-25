@@ -1,9 +1,4 @@
-"""Capa de compatibilidad para entornos sin Tcl/Tk moderno.
-
-Cuando Tk es 8.6 o superior se exporta CustomTkinter directamente. En
-versiones antiguas se ofrecen adaptadores con nombres compatibles para que la
-aplicación pueda conservar su estructura visual básica.
-"""
+"""Fallback UI si Tcl/Tk < 8.6 (CustomTkinter no funciona). No es el path normal en macOS con install_python.sh."""
 
 from __future__ import annotations
 
@@ -12,7 +7,6 @@ from tkinter import ttk
 
 
 def _tcl_ok() -> bool:
-    """Indica si la versión instalada de Tcl/Tk es compatible."""
     try:
         parts = tk.Tcl().eval("info patchlevel").split(".")
         major, minor = int(parts[0]), int(parts[1])
@@ -348,7 +342,6 @@ else:
     _orig_pack = tk.Pack.pack
 
     class _ScrollParent(CTkScrollableFrame):
-        """Subclass that is itself the parent API used by views."""
 
         def pack(self, *args, **kwargs):
             return tk.Frame.pack(self, *args, **kwargs)

@@ -1,8 +1,6 @@
-"""Vistas de administración de categorías y etiquetas.
-
-Ambos tipos de taxonomía comparten el mismo panel visual. El nombre se
-convierte en un slug URL y las operaciones de alta, edición y eliminación se
-delegan a los procedimientos definidos para cada entidad.
+"""Categorías / Etiquetas — CRUD completo.
+  pkg_categories: insert/update/delete_category, get_all
+  pkg_tags:       insert/update/delete_tag, get_all
 """
 
 import tkinter as tk
@@ -18,14 +16,11 @@ import theme
 
 
 def generar_slug(texto):
-    """Convierte un nombre en un slug URL estable y sin acentos."""
     texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('utf-8')
     texto = texto.lower().strip()
     return re.sub(r'[-\s]+', '-', re.sub(r'[^a-z0-9\s-]', '', texto))
 
 class _TaxonomyPanel(ctk.CTkFrame):
-    """Panel reutilizable para listar y administrar una taxonomía."""
-
     def __init__(self, parent, titulo, proc_get_all, proc_insert, proc_update, proc_delete):
         super().__init__(parent, fg_color="transparent")
         self.proc_get_all = proc_get_all
@@ -81,7 +76,6 @@ class _TaxonomyPanel(ctk.CTkFrame):
         self.reload()
 
     def guardar(self):
-        """Valida el nombre, genera el slug y crea el registro."""
         nombre = self.entry_nombre.get().strip()
         if not nombre:
             messagebox.showwarning("Falta información", "El nombre es obligatorio.")
@@ -100,7 +94,6 @@ class _TaxonomyPanel(ctk.CTkFrame):
         messagebox.showinfo("Listo", f"{self.titulo} creada exitosamente.")
 
     def reload(self):
-        """Actualiza la lista y conserva un estado vacío comprensible."""
         for widget in self.scroll.winfo_children():
             widget.destroy()
             
@@ -157,7 +150,6 @@ class _TaxonomyPanel(ctk.CTkFrame):
             ).pack(side="right", padx=2)
 
     def editar(self, item_id, current_name):
-        """Solicita un nuevo nombre y actualiza el registro seleccionado."""
         dialog = ctk.CTkInputDialog(text=f"Nuevo nombre para '{current_name}':", title="Editar")
         nuevo_nombre = dialog.get_input()
         
@@ -170,7 +162,6 @@ class _TaxonomyPanel(ctk.CTkFrame):
                 messagebox.showerror("Error", f"No se pudo actualizar: {e}")
 
     def eliminar(self, item_id, item_name):
-        """Confirma y elimina el registro seleccionado."""
         confirm = messagebox.askyesno("Confirmar", f"¿Seguro que deseas eliminar '{item_name}'?")
         if confirm:
             try:
@@ -180,7 +171,6 @@ class _TaxonomyPanel(ctk.CTkFrame):
                 messagebox.showerror("Error", f"No se pudo eliminar. Probablemente esté en uso.\nDetalles: {e}")
 
 class CategoriesView(ctk.CTkFrame):
-    """Vista de administración de categorías."""
     def __init__(self, parent):
         super().__init__(parent, fg_color=theme.PAGE_BG)
 
@@ -201,7 +191,6 @@ class CategoriesView(ctk.CTkFrame):
 
 
 class TagsView(ctk.CTkFrame):
-    """Vista de administración de etiquetas."""
     def __init__(self, parent):
         super().__init__(parent, fg_color=theme.PAGE_BG)
 

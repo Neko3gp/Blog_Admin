@@ -1,10 +1,4 @@
-"""Prueba de integración entre Python, Oracle y los paquetes PL/SQL.
-
-Comprueba la conexión, la lectura de CLOB, las cantidades esperadas del seed
-y la invocación de los procedimientos de usuarios, artículos, comentarios,
-categorías y etiquetas. La prueba escribe datos y, por tanto, debe ejecutarse
-preferentemente sobre un volumen recién inicializado.
-"""
+"""Integración Python ↔ paquetes PL/SQL (firmas CRUD). Preferible sobre volumen limpio."""
 
 import oracledb
 from db_connection import get_connection, call_procedure, call_procedure_with_cursor
@@ -13,14 +7,12 @@ resultados = []
 
 
 def check(nombre, condicion, detalle=""):
-    """Registra y muestra el resultado de una comprobación."""
     estado = "✅" if condicion else "❌"
     resultados.append(condicion)
     print(f"{estado} {nombre}{(' — ' + detalle) if detalle else ''}")
 
 
 def check_cursor_procedure(nombre, funcion):
-    """Valida un procedimiento que expone un cursor de salida."""
     try:
         funcion()
         check(nombre, True)
@@ -55,7 +47,7 @@ def probar_conexion_y_datos_semilla():
             n = cur.fetchone()[0]
             check("Seed: 2 artículos", n == 2, f"encontrados: {n}")
 
-            # Verifica que el adaptador de Oracle convierta el CLOB a texto.
+            # CLOB → str vía outputtypehandler
             cur.execute("SELECT title, text FROM articles WHERE id = 1")
             title, text = cur.fetchone()
             check(
@@ -68,7 +60,7 @@ def probar_conexion_y_datos_semilla():
 def probar_firmas_procedimientos():
     print("\n--- 2. Firmas de los 5 paquetes PL/SQL ---")
 
-    # Operaciones del paquete de usuarios.
+    # pkg_users
     try:
         call_procedure("pkg_users.insert_user", ["Prueba Integración", "prueba@correo.com"])
         check("pkg_users.insert_user es invocable", True)
@@ -80,7 +72,7 @@ def probar_firmas_procedimientos():
         lambda: call_procedure_with_cursor("pkg_users.get_all_users"),
     )
 
-    # create_article requiere un parámetro OUT NUMBER y se prueba directamente.
+    # pkg_articles (create usa OUT NUMBER)
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -107,7 +99,28 @@ def probar_firmas_procedimientos():
         lambda: call_procedure_with_cursor("pkg_articles.get_all_articles"),
     )
 
-    # Operaciones del paquete de comentarios.
+    try:
+        call_procedure(
+            "pkg_articles.update_article",
+            [1, "Título actualizado", "Texto actualizado", 1],
+        )
+        check("pkg_articles.update_article es invocable", True)
+    except oracledb.Error as e:
+        check("pkg_articles.update_article es invocable", False, str(e))
+
+    try:
+        call_procedure("pkg_articles.clear_tags", [1])
+        check("pkg_articles.clear_tags es invocable", True)
+    except oracledb.Error as e:
+        check("pkg_articles.clear_tags es invocable", False, str(e))
+
+    try:
+        call_procedure("pkg_articles.clear_categories", [1])
+        check("pkg_articles.clear_categories es invocable", True)
+    except oracledb.Error as e:
+        check("pkg_articles.clear_categories es invocable", False, str(e))
+
+    # pkg_comments
     try:
         call_procedure("pkg_comments.add_comment", ["Comentario de prueba", 1, 1])
         check("pkg_comments.add_comment es invocable", True)
@@ -119,7 +132,23 @@ def probar_firmas_procedimientos():
         lambda: call_procedure_with_cursor("pkg_comments.get_by_article", [1]),
     )
 
-    # Operaciones del paquete de categorías.
+    try:
+        call_procedure("pkg_comments.update_comment", [1, "Comentario editado"])
+        check("pkg_comments.update_comment es invocable", True)
+    except oracledb.Error as e:
+        check("pkg_comments.update_comment es invocable", False, str(e))
+
+    try:
+        rows = call_procedure_with_cursor("pkg_comments.get_by_article", [1])
+        if rows:
+            call_procedure("pkg_comments.delete_comment", [rows[-1][0]])
+            check("pkg_comments.delete_comment es invocable", True)
+        else:
+            check("pkg_comments.delete_comment es invocable", False, "sin comentarios")
+    except oracledb.Error as e:
+        check("pkg_comments.delete_comment es invocable", False, str(e))
+
+    # pkg_categories
     try:
         call_procedure("pkg_categories.insert_category", ["Categoría de prueba", "/prueba"])
         check("pkg_categories.insert_category es invocable", True)
@@ -131,7 +160,7 @@ def probar_firmas_procedimientos():
         lambda: call_procedure_with_cursor("pkg_categories.get_all"),
     )
 
-    # Operaciones del paquete de etiquetas.
+    # pkg_tags
     try:
         call_procedure("pkg_tags.insert_tag", ["Tag de prueba", "/prueba"])
         check("pkg_tags.insert_tag es invocable", True)
@@ -145,7 +174,6 @@ def probar_firmas_procedimientos():
 
 
 def main():
-    """Ejecuta todas las comprobaciones y presenta un resumen."""
     probar_conexion_y_datos_semilla()
     probar_firmas_procedimientos()
 

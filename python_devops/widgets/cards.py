@@ -1,4 +1,4 @@
-"""Componente visual que representa un artículo dentro del feed."""
+"""Tarjeta de artículo en el feed (click → article_detail)."""
 
 import customtkinter as ctk
 from widgets.chips import make_chip
@@ -6,8 +6,6 @@ import theme
 
 
 class ArticleCard(ctk.CTkFrame):
-    """Tarjeta interactiva con metadatos y taxonomía del artículo."""
-
     def __init__(self, parent, article, on_click=None, **kwargs):
         super().__init__(
             parent, fg_color=theme.PAGE_BG, border_color=theme.CARD_BORDER,
@@ -16,7 +14,6 @@ class ArticleCard(ctk.CTkFrame):
         self.article = article
         self.on_click = on_click
 
-        # El contenido interno separa la información del borde de la tarjeta.
         content = ctk.CTkFrame(self, fg_color="transparent")
         content.pack(fill="x", padx=16, pady=12)
 
@@ -63,6 +60,5 @@ class ArticleCard(ctk.CTkFrame):
             widget.configure(cursor="hand2")
 
     def _handle_click(self, _event):
-        """Notifica al contenedor superior que se seleccionó el artículo."""
         if self.on_click:
             self.on_click(self.article)

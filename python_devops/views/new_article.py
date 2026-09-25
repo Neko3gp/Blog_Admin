@@ -1,33 +1,34 @@
-"""Ventana para crear artículos y asignar su taxonomía.
-
-El formulario se abre como una ventana secundaria, valida los campos
-obligatorios y ejecuta los procedimientos PL/SQL de creación y asociación.
-Las etiquetas y categorías se modelan como selecciones múltiples.
+"""Formulario Create/Update de artículos → pkg_articles.
+  C: create_article + assign_tag/assign_category
+  U: update_article + clear_tags/clear_categories + reassign
 """
 
 import customtkinter as ctk
 from tkinter import messagebox
-from db_connection import fetch_options, call_procedure_returning_id, call_procedure
+from db_connection import (
+    fetch_options,
+    call_procedure_returning_id,
+    call_procedure,
+    fetch_article_text,
+    fetch_article_taxonomy_ids,
+    fetch_article_user_id,
+)
+
 
 class NewArticleView(ctk.CTkToplevel):
-    """Ventana flotante con los campos de un artículo nuevo."""
-
-    def __init__(self, master, go_back_callback=None, **kwargs):
+    def __init__(self, master, go_back_callback=None, article=None, **kwargs):
         super().__init__(master, **kwargs)
         self.go_back_callback = go_back_callback
-        
-        # La publicación se realiza en una ventana independiente para no
-        # desmontar la vista principal mientras se completa el formulario.
-        self.title("Publicar Nuevo Artículo")
+        self.article = article
+        self.editing = article is not None and article.get("id") is not None
+
+        self.title("Editar Artículo" if self.editing else "Publicar Nuevo Artículo")
         self.geometry("550x700")
         self.focus_force()
 
-        # Un contenedor desplazable permite mantener accesibles todos los
-        # campos aunque la ventana tenga una altura reducida.
         self.main_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.main_scroll.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Campos principales del artículo.
         ctk.CTkLabel(self.main_scroll, text="Título:", font=("Arial", 14, "bold")).pack(anchor="w")
         self.title_entry = ctk.CTkEntry(self.main_scroll, placeholder_text="Escribe el título...")
         self.title_entry.pack(fill="x", pady=(0, 15))
@@ -36,33 +37,30 @@ class NewArticleView(ctk.CTkToplevel):
         self.text_entry = ctk.CTkTextbox(self.main_scroll, height=150)
         self.text_entry.pack(fill="x", pady=(0, 15))
 
-        # El autor se identifica por su nombre, pero se persiste mediante su ID.
         ctk.CTkLabel(self.main_scroll, text="Usuario autor:", font=("Arial", 14, "bold")).pack(anchor="w")
         self.users_list = fetch_options("users", "id", "name")
         user_names = [u[1] for u in self.users_list] if self.users_list else []
         self.combo_user = ctk.CTkComboBox(self.main_scroll, values=user_names)
         self.combo_user.pack(fill="x", pady=(0, 15))
 
-        # El estado de visibilidad de cada sección se mantiene por separado.
         self.tags_visible = False
         self.cats_visible = False
 
-        # Sección colapsable de etiquetas.
         self.tags_container = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
         self.tags_container.pack(fill="x", pady=(10, 5))
 
         self.btn_toggle_tags = ctk.CTkButton(
-            self.tags_container, text="Etiquetas ►", anchor="w", 
+            self.tags_container, text="Etiquetas ►", anchor="w",
             fg_color="#333333", hover_color="#444444", text_color="white",
             command=self.toggle_tags
         )
         self.btn_toggle_tags.pack(fill="x")
 
         self.tags_frame = ctk.CTkScrollableFrame(self.tags_container, height=120)
-        
+
         self.tag_vars = {}
         self.tags_list = fetch_options("tags", "id", "name")
-        
+
         if self.tags_list:
             for tag in self.tags_list:
                 var = ctk.BooleanVar()
@@ -70,7 +68,6 @@ class NewArticleView(ctk.CTkToplevel):
                 cb.pack(anchor="w", padx=5, pady=2)
                 self.tag_vars[tag[0]] = var
 
-        # Sección colapsable de categorías.
         self.cats_container = ctk.CTkFrame(self.main_scroll, fg_color="transparent")
         self.cats_container.pack(fill="x", pady=(10, 15))
 
@@ -85,7 +82,7 @@ class NewArticleView(ctk.CTkToplevel):
 
         self.cat_vars = {}
         self.categories_list = fetch_options("categories", "id", "name")
-        
+
         if self.categories_list:
             for cat in self.categories_list:
                 var = ctk.BooleanVar()
@@ -93,16 +90,57 @@ class NewArticleView(ctk.CTkToplevel):
                 cb.pack(anchor="w", padx=5, pady=2)
                 self.cat_vars[cat[0]] = var
 
-        # El botón ejecuta la validación y las operaciones de persistencia.
         self.btn_guardar = ctk.CTkButton(
-            self.main_scroll, text="Publicar Artículo", 
+            self.main_scroll,
+            text="Guardar cambios" if self.editing else "Publicar Artículo",
             font=("Arial", 14, "bold"), fg_color="#28a745", hover_color="#218838",
             command=self.guardar
         )
         self.btn_guardar.pack(pady=20, fill="x")
 
+        if self.editing:
+            self._prefiller()
+
+    def _prefiller(self):
+        article_id = self.article["id"]
+        title = self.article.get("title") or ""
+        self.title_entry.insert(0, title)
+
+        text = self.article.get("text")
+        if not text:
+            try:
+                text = fetch_article_text(article_id) or ""
+            except Exception:
+                text = ""
+        self.text_entry.insert("0.0", text)
+
+        try:
+            user_id = fetch_article_user_id(article_id)
+        except Exception:
+            user_id = None
+        if user_id is not None:
+            user_name = next((u[1] for u in self.users_list if u[0] == user_id), None)
+            if user_name:
+                self.combo_user.set(user_name)
+
+        try:
+            tag_ids, cat_ids = fetch_article_taxonomy_ids(article_id)
+        except Exception:
+            tag_ids, cat_ids = [], []
+
+        for tid, var in self.tag_vars.items():
+            if tid in tag_ids:
+                var.set(True)
+        for cid, var in self.cat_vars.items():
+            if cid in cat_ids:
+                var.set(True)
+
+        if tag_ids:
+            self.toggle_tags()
+        if cat_ids:
+            self.toggle_cats()
+
     def toggle_tags(self):
-        """Muestra u oculta las opciones de etiquetas."""
         if self.tags_visible:
             self.tags_frame.pack_forget()
             self.btn_toggle_tags.configure(text="Etiquetas ►")
@@ -113,7 +151,6 @@ class NewArticleView(ctk.CTkToplevel):
             self.tags_visible = True
 
     def toggle_cats(self):
-        """Muestra u oculta las opciones de categorías."""
         if self.cats_visible:
             self.cats_frame.pack_forget()
             self.btn_toggle_cats.configure(text="Categorías ►")
@@ -124,7 +161,6 @@ class NewArticleView(ctk.CTkToplevel):
             self.cats_visible = True
 
     def guardar(self):
-        """Valida el formulario, crea el artículo y asigna su taxonomía."""
         titulo = self.title_entry.get().strip()
         texto = self.text_entry.get("0.0", "end").strip()
         user_name = self.combo_user.get()
@@ -134,30 +170,51 @@ class NewArticleView(ctk.CTkToplevel):
             return
 
         user_id = next((u[0] for u in self.users_list if u[1] == user_name), None)
+        if user_id is None:
+            messagebox.showerror("Error", "Usuario no válido.")
+            return
+
+        selected_tags = [t_id for t_id, var in self.tag_vars.items() if var.get()]
+        selected_categories = [c_id for c_id, var in self.cat_vars.items() if var.get()]
 
         try:
-            article_id = call_procedure_returning_id("pkg_articles.create_article", [titulo, texto, user_id])
-
-            if article_id:
-                selected_tags = [t_id for t_id, var in self.tag_vars.items() if var.get()]
+            if self.editing:
+                article_id = self.article["id"]
+                call_procedure(
+                    "pkg_articles.update_article",
+                    [article_id, titulo, texto, user_id],
+                )
+                call_procedure("pkg_articles.clear_tags", [article_id])
+                call_procedure("pkg_articles.clear_categories", [article_id])
                 for tag_id in selected_tags:
                     call_procedure("pkg_articles.assign_tag", [article_id, tag_id])
-
-                selected_categories = [c_id for c_id, var in self.cat_vars.items() if var.get()]
                 for cat_id in selected_categories:
                     call_procedure("pkg_articles.assign_category", [article_id, cat_id])
+                messagebox.showinfo("Éxito", f"Artículo actualizado (ID: {article_id}).")
+            else:
+                article_id = call_procedure_returning_id(
+                    "pkg_articles.create_article", [titulo, texto, user_id]
+                )
+                if article_id:
+                    for tag_id in selected_tags:
+                        call_procedure("pkg_articles.assign_tag", [article_id, tag_id])
+                    for cat_id in selected_categories:
+                        call_procedure("pkg_articles.assign_category", [article_id, cat_id])
+                    messagebox.showinfo(
+                        "Éxito", f"Artículo publicado correctamente (ID: {article_id})."
+                    )
 
-                messagebox.showinfo("Éxito", f"Artículo publicado correctamente (ID: {article_id}).")
-                
-                self.destroy()
+            self.destroy()
+            if self.go_back_callback:
+                self.go_back_callback()
 
-                if self.go_back_callback:
-                    self.go_back_callback()
-                    
         except Exception as e:
             messagebox.showerror("Error de BD", str(e))
 
+
 def abrir_form_publicar_articulo(parent_frame, on_saved=None):
-    """Abre la ventana de publicación y devuelve su instancia."""
-    vista = NewArticleView(parent_frame, go_back_callback=on_saved)
-    return vista
+    return NewArticleView(parent_frame, go_back_callback=on_saved)
+
+
+def abrir_form_editar_articulo(parent_frame, article, on_saved=None):
+    return NewArticleView(parent_frame, go_back_callback=on_saved, article=article)

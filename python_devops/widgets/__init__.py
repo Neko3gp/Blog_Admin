@@ -1,1 +1,1 @@
-"""Componentes visuales reutilizables de la interfaz."""
+"""Widgets reutilizables (cards, chips, scroll)."""

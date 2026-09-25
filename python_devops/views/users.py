@@ -1,4 +1,4 @@
-"""Vista de consulta y alta de usuarios de la aplicación."""
+"""Usuarios — pkg_users: insert_user (C), get_all_users (R). Sin U/D en este módulo."""
 
 import tkinter as tk
 from tkinter import messagebox
@@ -11,8 +11,6 @@ import theme
 
 
 class UsersView(ctk.CTkFrame):
-    """Presenta usuarios existentes y un formulario para crear nuevos."""
-
     def __init__(self, parent):
         super().__init__(parent, fg_color=theme.PAGE_BG)
 
@@ -28,7 +26,6 @@ class UsersView(ctk.CTkFrame):
         list_col = ctk.CTkFrame(body, fg_color="transparent")
         list_col.pack(side="left", fill="both", expand=True)
         
-        # El contenedor desplazable se adapta a la cantidad de usuarios.
         self.scroll = ctk.CTkScrollableFrame(
             list_col, fg_color="transparent",
             scrollbar_button_color=theme.SCROLLBAR_FG,
@@ -46,7 +43,6 @@ class UsersView(ctk.CTkFrame):
         self.reload()
 
     def _build_form(self, parent):
-        """Construye y conecta el formulario de alta de usuarios."""
         ctk.CTkLabel(
             parent, text="Nuevo usuario", 
             font=ctk.CTkFont(family="Helvetica", size=15, weight="bold"),
@@ -99,7 +95,6 @@ class UsersView(ctk.CTkFrame):
         ).pack(pady=20)
 
     def reload(self):
-        """Recarga la lista de usuarios desde Oracle."""
         for widget in self.scroll.winfo_children():
             widget.destroy()
 

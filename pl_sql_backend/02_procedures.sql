@@ -1,11 +1,18 @@
--- =====================================================
--- 02_procedures.sql
--- Propósito: definir la API PL/SQL de la aplicación.
--- Cada paquete encapsula las operaciones de una entidad y confirma o
--- revierte sus propias transacciones de escritura.
--- =====================================================
+-- 02_procedures.sql — API PL/SQL (cada paquete hace COMMIT/ROLLBACK propio).
+-- CRUD / contrato usado por la GUI (python_devops):
+--   pkg_users      → insert_user, get_all_users
+--                    Vista: views/users.py
+--   pkg_articles   → create/update/delete_article, get_all_articles,
+--                    assign_tag/category, clear_tags/categories
+--                    Vista: views/feed.py + new_article.py + article_detail.py
+--   pkg_comments   → add/update/delete_comment, get_by_article
+--                    Vista: views/article_detail.py
+--   pkg_categories → insert/update/delete_category, get_all
+--                    Vista: views/taxonomy.py (CategoriesView)
+--   pkg_tags       → insert/update/delete_tag, get_all
+--                    Vista: views/taxonomy.py (TagsView)
 
--- ---------- Usuarios ----------
+-- ---------- Usuarios (C: insert | R: get_all) ----------
 
 CREATE OR REPLACE PACKAGE pkg_users AS
     PROCEDURE insert_user(
@@ -51,7 +58,7 @@ END pkg_users;
 /
 
 
--- ---------- Artículos y asociaciones taxonómicas ----------
+-- ---------- Artículos (CRUD + N:N tags/categories) ----------
 
 CREATE OR REPLACE PACKAGE pkg_articles AS
     PROCEDURE create_article(
@@ -59,6 +66,17 @@ CREATE OR REPLACE PACKAGE pkg_articles AS
         p_text       IN  CLOB,
         p_user_id    IN  NUMBER,
         p_article_id OUT NUMBER
+    );
+
+    PROCEDURE update_article(
+        p_id      IN NUMBER,
+        p_title   IN VARCHAR2,
+        p_text    IN CLOB,
+        p_user_id IN NUMBER
+    );
+
+    PROCEDURE delete_article(
+        p_id IN NUMBER
     );
 
     PROCEDURE assign_tag(
@@ -69,6 +87,14 @@ CREATE OR REPLACE PACKAGE pkg_articles AS
     PROCEDURE assign_category(
         p_article_id  IN NUMBER,
         p_category_id IN NUMBER
+    );
+
+    PROCEDURE clear_tags(
+        p_article_id IN NUMBER
+    );
+
+    PROCEDURE clear_categories(
+        p_article_id IN NUMBER
     );
 
     PROCEDURE get_all_articles(
@@ -99,6 +125,47 @@ CREATE OR REPLACE PACKAGE BODY pkg_articles AS
                 RAISE;
             END IF;
     END create_article;
+
+    PROCEDURE update_article(
+        p_id      IN NUMBER,
+        p_title   IN VARCHAR2,
+        p_text    IN CLOB,
+        p_user_id IN NUMBER
+    ) IS
+    BEGIN
+        UPDATE articles
+        SET title = p_title,
+            text = p_text,
+            user_id = p_user_id
+        WHERE id = p_id;
+        IF SQL%ROWCOUNT = 0 THEN
+            RAISE_APPLICATION_ERROR(-20012, 'Artículo no existe');
+        END IF;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            IF SQLCODE = -2291 THEN
+                RAISE_APPLICATION_ERROR(-20002, 'Usuario no existe');
+            ELSE
+                RAISE;
+            END IF;
+    END update_article;
+
+    PROCEDURE delete_article(
+        p_id IN NUMBER
+    ) IS
+    BEGIN
+        DELETE FROM articles WHERE id = p_id;
+        IF SQL%ROWCOUNT = 0 THEN
+            RAISE_APPLICATION_ERROR(-20013, 'Artículo no existe');
+        END IF;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END delete_article;
 
     PROCEDURE assign_tag(
         p_article_id IN NUMBER,
@@ -140,6 +207,30 @@ CREATE OR REPLACE PACKAGE BODY pkg_articles AS
             END IF;
     END assign_category;
 
+    PROCEDURE clear_tags(
+        p_article_id IN NUMBER
+    ) IS
+    BEGIN
+        DELETE FROM article_tags WHERE article_id = p_article_id;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END clear_tags;
+
+    PROCEDURE clear_categories(
+        p_article_id IN NUMBER
+    ) IS
+    BEGIN
+        DELETE FROM article_categories WHERE article_id = p_article_id;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END clear_categories;
+
     PROCEDURE get_all_articles(
         p_cursor OUT SYS_REFCURSOR
     ) IS
@@ -154,13 +245,22 @@ END pkg_articles;
 /
 
 
--- ---------- Comentarios ----------
+-- ---------- Comentarios (CRUD por artículo) ----------
 
 CREATE OR REPLACE PACKAGE pkg_comments AS
     PROCEDURE add_comment(
         p_content    IN CLOB,
         p_user_id    IN NUMBER,
         p_article_id IN NUMBER
+    );
+
+    PROCEDURE update_comment(
+        p_id      IN NUMBER,
+        p_content IN CLOB
+    );
+
+    PROCEDURE delete_comment(
+        p_id IN NUMBER
     );
 
     PROCEDURE get_by_article(
@@ -191,6 +291,39 @@ CREATE OR REPLACE PACKAGE BODY pkg_comments AS
             END IF;
     END add_comment;
 
+    PROCEDURE update_comment(
+        p_id      IN NUMBER,
+        p_content IN CLOB
+    ) IS
+    BEGIN
+        UPDATE comments
+        SET content = p_content
+        WHERE id = p_id;
+        IF SQL%ROWCOUNT = 0 THEN
+            RAISE_APPLICATION_ERROR(-20014, 'Comentario no existe');
+        END IF;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END update_comment;
+
+    PROCEDURE delete_comment(
+        p_id IN NUMBER
+    ) IS
+    BEGIN
+        DELETE FROM comments WHERE id = p_id;
+        IF SQL%ROWCOUNT = 0 THEN
+            RAISE_APPLICATION_ERROR(-20015, 'Comentario no existe');
+        END IF;
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+            RAISE;
+    END delete_comment;
+
     PROCEDURE get_by_article(
         p_article_id IN  NUMBER,
         p_cursor     OUT SYS_REFCURSOR
@@ -207,7 +340,7 @@ END pkg_comments;
 /
 
 
--- ---------- Categorías ----------
+-- ---------- Categorías (CRUD) ----------
 
 CREATE OR REPLACE PACKAGE pkg_categories AS
     PROCEDURE insert_category(
@@ -295,7 +428,7 @@ END pkg_categories;
 /
 
 
--- ---------- Etiquetas ----------
+-- ---------- Etiquetas (CRUD) ----------
 
 CREATE OR REPLACE PACKAGE pkg_tags AS
     PROCEDURE insert_tag(

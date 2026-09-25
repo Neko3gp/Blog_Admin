@@ -1,20 +1,9 @@
-"""Utilidades de lectura y normalización para las vistas de la aplicación.
-
-Las vistas consultan primero los procedimientos PL/SQL. Cuando una operación
-de lectura no está disponible, se usa una consulta de respaldo explícita para
-mantener la interfaz operativa sin ocultar errores de escritura.
-"""
+"""Helpers de lectura para las vistas (PL/SQL con fallback SQL)."""
 
 from db_connection import call_procedure_with_cursor, fetch_options, get_connection
 
 
 def safe_get_all(package_procedure, params=None):
-    """Obtiene filas mediante PL/SQL y aplica una consulta de respaldo.
-
-    Returns:
-        Lista de filas. Si no existe un respaldo o falla la consulta, devuelve
-        una lista vacía para que la vista pueda mostrar su estado vacío.
-    """
     try:
         rows = call_procedure_with_cursor(package_procedure, params)
         if rows:
@@ -22,6 +11,7 @@ def safe_get_all(package_procedure, params=None):
     except Exception:
         pass
 
+    # Fallback si el procedimiento get_* no responde (misma proyección que el paquete).
     fallback_sql = {
         "pkg_articles.get_all_articles":
             "SELECT id, title, pub_date, user_id FROM articles ORDER BY id",
@@ -45,7 +35,7 @@ def safe_get_all(package_procedure, params=None):
 
 
 def users_lookup():
-    """Devuelve un mapa ``id -> nombre`` para presentar autores en la GUI."""
+    """id → name (autores en feed / comentarios)."""
     try:
         return {uid: nombre for uid, nombre in fetch_options("users", "id", "name")}
     except Exception:
